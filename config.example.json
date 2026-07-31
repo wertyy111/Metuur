@@ -6,9 +6,20 @@
   "maxHistory": 5000,
   "showDescriptions": true,
   "showHiddenFiles": false,
+  "ai": {
+    "enabled": true,
+    "provider": "portable",
+    "endpoint": "http://127.0.0.1:11435/v1",
+    "model": "qwen2.5-coder:0.5b",
+    "dataDir": "",
+    "debounceMS": 500,
+    "timeoutMS": 5000
+  },
   "theme": {
-    "accent": "135",
-    "muted": "244",
-    "selected": "237"
+    "accent": "141",
+    "logo": "213",
+    "command": "121",
+    "muted": "248",
+    "selected": "60"
   }
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/wertyy111/metuur/internal/config"
@@ -37,18 +38,44 @@ func Run(cfg config.Config, version string) error {
 	if cfg.LocalAIEnabled {
 		engine.SetLocalAI(localai.Load(config.ModelPath()))
 	}
+	var aiCompleter *localai.Completer
+	if cfg.AI.Enabled {
+		aiDataDir := config.AIDataDir(cfg)
+		if strings.EqualFold(cfg.AI.Provider, "portable") && localai.PortableReady(aiDataDir) {
+			// Loading the model is intentionally detached from the UI. Built-in
+			// suggestions remain instant while the local completion engine starts.
+			go func() { _ = localai.StartPortable(aiDataDir, cfg.AI.Endpoint, cfg.AI.Model) }()
+		}
+		apiKey := ""
+		if cfg.AI.APIKeyEnv != "" {
+			apiKey = os.Getenv(cfg.AI.APIKeyEnv)
+		}
+		aiCompleter = localai.NewCompleter(localai.ProviderConfig{
+			Endpoint: cfg.AI.Endpoint,
+			Model:    cfg.AI.Model,
+			APIKey:   apiKey,
+			Timeout:  time.Duration(cfg.AI.TimeoutMS) * time.Millisecond,
+		}, time.Duration(cfg.AI.DebounceMS)*time.Millisecond)
+		defer aiCompleter.Close()
+	}
 	renderer := ui.New(os.Stdout, cfg)
 
 	var (
-		buffer       []rune
-		cursor       int
-		selected     int
-		mode         = suggest.ModeSpec
-		menuVisible  = true
-		suggestions  []suggest.Suggestion
-		historyItems = store.Commands()
-		historyIndex = len(historyItems)
-		savedBuffer  []rune
+		buffer        []rune
+		cursor        int
+		selected      int
+		mode          = suggest.ModeSpec
+		menuVisible   = true
+		suggestions   []suggest.Suggestion
+		historyItems  = store.Commands()
+		historyIndex  = len(historyItems)
+		savedBuffer   []rune
+		aiSuggestion  *suggest.Suggestion
+		aiQuery       string
+		lastAIQuery   string
+		userNavigated bool
+		lastCommand   string
+		lastExitCode  int
 	)
 
 	recompute := func() {
@@ -61,6 +88,9 @@ func Run(cfg config.Config, version string) error {
 		} else {
 			suggestions = engine.Suggest(string(buffer), cwd, mode, max(100, cfg.MaxSuggestions*20))
 		}
+		if aiSuggestion != nil && aiQuery == string(buffer) && mode == suggest.ModeSpec {
+			suggestions = mergeAISuggestion(suggestions, *aiSuggestion)
+		}
 		if len(suggestions) == 0 {
 			selected = -1
 		} else if selected < 0 || selected >= len(suggestions) {
@@ -70,6 +100,7 @@ func Run(cfg config.Config, version string) error {
 	}
 	resetSelection := func() {
 		selected = 0
+		userNavigated = false
 		historyIndex = len(historyItems)
 		savedBuffer = nil
 	}
@@ -89,6 +120,7 @@ func Run(cfg config.Config, version string) error {
 			savedBuffer = append([]rune(nil), buffer...)
 		}
 		historyIndex = index
+		userNavigated = true
 		if index == len(historyItems) {
 			buffer = append([]rune(nil), savedBuffer...)
 		} else {
@@ -98,13 +130,77 @@ func Run(cfg config.Config, version string) error {
 		selected = 0
 		menuVisible = true
 	}
+	scheduleAI := func() {
+		if aiCompleter == nil {
+			return
+		}
+		query := string(buffer)
+		if mode != suggest.ModeSpec {
+			aiCompleter.Cancel()
+			lastAIQuery = ""
+			aiSuggestion = nil
+			aiQuery = ""
+			return
+		}
+		if query == lastAIQuery {
+			return
+		}
+		lastAIQuery = query
+		aiSuggestion = nil
+		aiQuery = ""
+		cwd, cwdErr := os.Getwd()
+		if cwdErr != nil {
+			cwd = "."
+		}
+		activeFile, _ := engine.ActiveGoFile(cwd)
+		environment := localai.Environment{
+			CWD:            cwd,
+			ActiveFile:     activeFile,
+			RecentCommands: append([]string(nil), historyItems...),
+			LastCommand:    lastCommand,
+			LastExitCode:   lastExitCode,
+		}
+		for index, item := range suggestions {
+			if index >= 16 {
+				break
+			}
+			environment.Candidates = append(environment.Candidates, item.Insert)
+		}
+		if len(environment.Candidates) == 0 {
+			return
+		}
+		_ = aiCompleter.Request(query, environment)
+	}
 
 	recompute()
 	for {
-		key, readErr := terminal.ReadKey()
+		if aiCompleter != nil {
+			select {
+			case completion := <-aiCompleter.Results():
+				if completion.Err == nil && completion.Command != "" && completion.Query == string(buffer) &&
+					mode == suggest.ModeSpec && !userNavigated {
+					aiQuery = completion.Query
+					aiSuggestion = &suggest.Suggestion{
+						Label:       completion.Command,
+						Insert:      completion.Command,
+						Description: "локальный " + completion.Model + " · AI-подсказка",
+						Kind:        "ai",
+						Score:       550,
+					}
+					selected = 0
+					recompute()
+				}
+			default:
+			}
+		}
+
+		key, ready, readErr := terminal.ReadKeyTimeout(60 * time.Millisecond)
 		if readErr != nil {
 			renderer.ClearLine()
 			return readErr
+		}
+		if !ready {
+			continue
 		}
 
 		if key.Ctrl && key.Kind == winconsole.KeyRune {
@@ -167,6 +263,7 @@ func Run(cfg config.Config, version string) error {
 				}
 			}
 			recompute()
+			scheduleAI()
 			continue
 		}
 
@@ -206,6 +303,7 @@ func Run(cfg config.Config, version string) error {
 			if len(buffer) == 0 && mode == suggest.ModeSpec && historyIndex > 0 {
 				setHistory(historyIndex - 1)
 			} else if menuVisible && len(suggestions) > 0 {
+				userNavigated = true
 				selected--
 				if selected < 0 {
 					selected = len(suggestions) - 1
@@ -215,6 +313,7 @@ func Run(cfg config.Config, version string) error {
 			if historyIndex < len(historyItems) {
 				setHistory(historyIndex + 1)
 			} else if menuVisible && len(suggestions) > 0 {
+				userNavigated = true
 				selected = (selected + 1) % len(suggestions)
 			}
 		case winconsole.KeyTab:
@@ -257,6 +356,9 @@ func Run(cfg config.Config, version string) error {
 			if suspendErr := terminal.Suspend(); suspendErr != nil {
 				return suspendErr
 			}
+			if aiCompleter != nil {
+				aiCompleter.Cancel()
+			}
 			exit, runErr := runner.Run(line)
 			resumeErr := terminal.Resume()
 			if resumeErr != nil {
@@ -268,6 +370,8 @@ func Run(cfg config.Config, version string) error {
 			if runErr == nil {
 				engine.Learn(line, commandCwd)
 			}
+			lastCommand = line
+			lastExitCode = shell.ExitCode(runErr)
 			store.Add(line)
 			historyItems = append(historyItems, line)
 			if len(historyItems) > cfg.MaxHistory {
@@ -285,7 +389,32 @@ func Run(cfg config.Config, version string) error {
 			resetSelection()
 		}
 		recompute()
+		scheduleAI()
 	}
+}
+
+func mergeAISuggestion(items []suggest.Suggestion, ai suggest.Suggestion) []suggest.Suggestion {
+	result := make([]suggest.Suggestion, 0, len(items)+1)
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(item.Insert), strings.TrimSpace(ai.Insert)) {
+			if item.Score > ai.Score {
+				ai.Score = item.Score
+			}
+			continue
+		}
+		result = append(result, item)
+	}
+	position := len(result)
+	for index, item := range result {
+		if ai.Score > item.Score {
+			position = index
+			break
+		}
+	}
+	result = append(result, suggest.Suggestion{})
+	copy(result[position+1:], result[position:])
+	result[position] = ai
+	return result
 }
 
 func copyInputLine(line string) error {

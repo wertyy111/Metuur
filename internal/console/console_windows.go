@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	"time"
 	"unicode/utf16"
 	"unsafe"
 )
@@ -70,10 +71,11 @@ const (
 )
 
 var (
-	kernel32Proc          = syscall.NewLazyDLL("kernel32.dll")
-	getConsoleModeProc    = kernel32Proc.NewProc("GetConsoleMode")
-	setConsoleModeProc    = kernel32Proc.NewProc("SetConsoleMode")
-	readConsoleInputWProc = kernel32Proc.NewProc("ReadConsoleInputW")
+	kernel32Proc            = syscall.NewLazyDLL("kernel32.dll")
+	getConsoleModeProc      = kernel32Proc.NewProc("GetConsoleMode")
+	setConsoleModeProc      = kernel32Proc.NewProc("SetConsoleMode")
+	readConsoleInputWProc   = kernel32Proc.NewProc("ReadConsoleInputW")
+	waitForSingleObjectProc = kernel32Proc.NewProc("WaitForSingleObject")
 )
 
 type inputRecord struct {
@@ -118,12 +120,45 @@ func Open() (*Console, error) {
 }
 
 func (c *Console) ReadKey() (Key, error) {
+	key, _, err := c.readKeyTimeout(-1)
+	return key, err
+}
+
+func (c *Console) ReadKeyTimeout(timeout time.Duration) (Key, bool, error) {
+	return c.readKeyTimeout(timeout)
+}
+
+func (c *Console) readKeyTimeout(timeout time.Duration) (Key, bool, error) {
 	if c.repeat > 0 {
 		c.repeat--
-		return c.pending, nil
+		return c.pending, true, nil
 	}
 
+	var deadline time.Time
+	if timeout >= 0 {
+		deadline = time.Now().Add(timeout)
+	}
 	for {
+		waitMillis := uint32(0xffffffff)
+		if timeout >= 0 {
+			remaining := time.Until(deadline)
+			if remaining <= 0 {
+				return Key{}, false, nil
+			}
+			waitMillis = uint32((remaining + time.Millisecond - 1) / time.Millisecond)
+		}
+		waitResult, _, waitErr := waitForSingleObjectProc.Call(uintptr(c.input), uintptr(waitMillis))
+		switch uint32(waitResult) {
+		case 0x00000000:
+			// Console input is available.
+		case 0x00000102:
+			return Key{}, false, nil
+		case 0xffffffff:
+			return Key{}, false, fmt.Errorf("wait for console input: %w", waitErr)
+		default:
+			return Key{}, false, fmt.Errorf("wait for console input returned 0x%x", waitResult)
+		}
+
 		var (
 			record inputRecord
 			read   uint32
@@ -135,7 +170,7 @@ func (c *Console) ReadKey() (Key, error) {
 			uintptr(unsafe.Pointer(&read)),
 		)
 		if result == 0 {
-			return Key{}, callErr
+			return Key{}, false, callErr
 		}
 		if read == 0 || record.EventType != keyEvent {
 			continue
@@ -152,7 +187,7 @@ func (c *Console) ReadKey() (Key, error) {
 			c.pending = key
 			c.repeat = event.RepeatCount - 1
 		}
-		return key, nil
+		return key, true, nil
 	}
 }
 

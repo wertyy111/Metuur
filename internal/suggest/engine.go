@@ -104,6 +104,10 @@ func (e *Engine) Learn(command, cwd string) {
 	}
 }
 
+func (e *Engine) ActiveGoFile(cwd string) (string, bool) {
+	return activeGoFile(cwd)
+}
+
 func hasWorkspaceTargetContext(parsed parseResult) bool {
 	if _, ok := goRunQuery(parsed); ok {
 		return true

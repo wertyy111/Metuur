@@ -50,7 +50,20 @@ func TestRendererUsesScrollableSuggestionWindow(t *testing.T) {
 		!strings.Contains(rendered, "vet") || strings.Contains(rendered, "build") {
 		t.Fatalf("suggestion window did not follow selection: %q", rendered)
 	}
-	if strings.Contains(rendered, "Metuur 0.2.1") || !strings.Contains(rendered, "╭─ 4/5") {
-		t.Fatalf("top border should contain only the counter: %q", rendered)
+	if !strings.Contains(rendered, "METUUR") || !strings.Contains(rendered, "4/5") {
+		t.Fatalf("top border should contain the Metuur logo and counter: %q", rendered)
+	}
+}
+
+func TestRendererUsesConfiguredPalette(t *testing.T) {
+	var output bytes.Buffer
+	cfg := config.Default()
+	renderer := New(&output, cfg)
+	renderer.Redraw([]rune("go"), 2, []suggest.Suggestion{{Label: "go run .", Insert: "go run .", Kind: "ai"}}, 0, suggest.ModeSpec, true)
+	rendered := output.String()
+	for _, color := range []string{cfg.Theme.Accent, cfg.Theme.Logo, cfg.Theme.Command, cfg.Theme.Selected} {
+		if !strings.Contains(rendered, "38;5;"+color+"m") && !strings.Contains(rendered, "48;5;"+color+"m") {
+			t.Fatalf("configured color %s is absent from rendered UI: %q", color, rendered)
+		}
 	}
 }
