@@ -22,7 +22,7 @@ import (
 	"github.com/wertyy111/metuur/internal/suggest"
 )
 
-const version = "0.3.0"
+const version = "0.3.1"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {

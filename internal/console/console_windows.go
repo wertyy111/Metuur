@@ -54,12 +54,13 @@ const (
 	blinkingBarCursor = "\x1b[5 q"
 	defaultCursor     = "\x1b[0 q"
 
-	enableProcessedInput = 0x0001
-	enableLineInput      = 0x0002
-	enableEchoInput      = 0x0004
-	enableWindowInput    = 0x0008
-	enableQuickEditMode  = 0x0040
-	enableExtendedFlags  = 0x0080
+	enableProcessedInput       = 0x0001
+	enableLineInput            = 0x0002
+	enableEchoInput            = 0x0004
+	enableWindowInput          = 0x0008
+	enableQuickEditMode        = 0x0040
+	enableExtendedFlags        = 0x0080
+	enableVirtualTerminalInput = 0x0200
 
 	enableVirtualTerminalProcessing = 0x0004
 
@@ -105,9 +106,7 @@ func Open() (*Console, error) {
 		return nil, fmt.Errorf("stdout is not a Windows console: %w", err)
 	}
 
-	c.rawMode = c.inputMode
-	c.rawMode &^= enableProcessedInput | enableLineInput | enableEchoInput | enableQuickEditMode
-	c.rawMode |= enableWindowInput | enableExtendedFlags
+	c.rawMode = rawInputMode(c.inputMode)
 	if err := c.Resume(); err != nil {
 		return nil, err
 	}
@@ -117,6 +116,17 @@ func Open() (*Console, error) {
 	}
 	fmt.Fprint(os.Stdout, blinkingBarCursor)
 	return c, nil
+}
+
+// rawInputMode configures the input handle for ReadConsoleInputW. VS Code's
+// ConPTY can leave ENABLE_VIRTUAL_TERMINAL_INPUT enabled on the inherited
+// handle. That mode translates keystrokes into VT byte sequences and conflicts
+// with reading KEY_EVENT_RECORD values, making the prompt appear frozen.
+func rawInputMode(mode uint32) uint32 {
+	mode &^= enableProcessedInput | enableLineInput | enableEchoInput |
+		enableQuickEditMode | enableVirtualTerminalInput
+	mode |= enableWindowInput | enableExtendedFlags
+	return mode
 }
 
 func (c *Console) ReadKey() (Key, error) {
