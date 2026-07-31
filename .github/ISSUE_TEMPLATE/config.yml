@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Вопрос или обсуждение
+    url: https://github.com/wertyy111/Metuur/discussions
+    about: Задайте вопрос в GitHub Discussions.

@@ -1,0 +1,13 @@
+{
+  "prompt": "λ ",
+  "shell": "auto",
+  "maxSuggestions": 5,
+  "maxHistory": 5000,
+  "showDescriptions": true,
+  "showHiddenFiles": false,
+  "theme": {
+    "accent": "135",
+    "muted": "244",
+    "selected": "237"
+  }
+}

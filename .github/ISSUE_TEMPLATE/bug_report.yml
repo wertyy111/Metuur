@@ -1,0 +1,33 @@
+name: Ошибка
+description: Сообщить о проблеме в Metuur
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: Что произошло?
+      description: Опишите ожидаемое и фактическое поведение.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Как повторить?
+      description: Укажите введённую команду и последовательность действий.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Версия Metuur
+      placeholder: "0.2.0"
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Windows и терминал
+      placeholder: "Windows 11, VS Code Terminal, PowerShell 7"
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Дополнительная информация
+      description: Логи, снимки экрана и пример структуры проекта.

@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Test
+        run: go test -count=1 ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Build
+        run: go build -buildvcs=false -trimpath -o .\dist\metuur-windows-amd64.exe .\cmd\metuur
+      - uses: actions/upload-artifact@v4
+        with:
+          name: metuur-windows-amd64
+          path: dist/metuur-windows-amd64.exe

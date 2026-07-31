@@ -1,0 +1,393 @@
+{
+  "root": [
+    {"value":"go","description":"компилятор и инструменты Go"},
+    {"value":"gofmt","description":"форматирование исходного кода Go"},
+    {"value":"goimports","description":"форматирование и управление imports"},
+    {"value":"gopls","description":"официальный language server Go"},
+    {"value":"dlv","description":"отладчик Delve для Go"},
+    {"value":"golangci-lint","description":"набор линтеров Go"},
+    {"value":"staticcheck","description":"статический анализ Go"},
+    {"value":"gotestsum","description":"удобный запуск go test"},
+    {"value":"goreleaser","description":"сборка релизов Go"},
+    {"value":"goctl","description":"генератор кода go-zero"},
+    {"value":"air","description":"live reload для Go"},
+    {"value":"mockgen","description":"генератор GoMock"},
+    {"value":"govulncheck","description":"поиск уязвимостей в Go-коде"},
+    {"value":"stringer","description":"генератор String для enum"}
+  ],
+  "contexts": {
+    "go": [
+      {"value":"build","description":"скомпилировать пакеты"},
+      {"value":"clean","description":"удалить результаты сборки и кеш"},
+      {"value":"doc","description":"показать документацию пакета или символа"},
+      {"value":"env","description":"показать или изменить окружение Go"},
+      {"value":"fix","description":"обновить код для новых API"},
+      {"value":"fmt","description":"форматировать пакеты"},
+      {"value":"generate","description":"выполнить директивы go:generate"},
+      {"value":"get","description":"добавить или обновить зависимости"},
+      {"value":"install","description":"собрать и установить пакет"},
+      {"value":"list","description":"показать пакеты или модули"},
+      {"value":"mod","description":"управление модулем"},
+      {"value":"run","description":"скомпилировать и запустить программу"},
+      {"value":"telemetry","description":"управление телеметрией Go"},
+      {"value":"test","description":"запустить тесты"},
+      {"value":"tool","description":"запустить инструмент Go"},
+      {"value":"version","description":"показать версию Go"},
+      {"value":"vet","description":"найти вероятные ошибки"},
+      {"value":"work","description":"управление workspace"},
+      {"value":"bug","description":"создать отчёт об ошибке"}
+    ],
+    "go build": [
+      {"value":".","description":"текущий пакет"},
+      {"value":"./...","description":"все пакеты модуля"},
+      {"value":"-o","description":"выходной файл или папка"},
+      {"value":"-race","description":"включить детектор гонок"},
+      {"value":"-trimpath","description":"убрать пути файловой системы"},
+      {"value":"-tags","description":"build tags через запятую"},
+      {"value":"-ldflags","description":"аргументы для linker"},
+      {"value":"-gcflags","description":"аргументы для compiler"},
+      {"value":"-asmflags","description":"аргументы для assembler"},
+      {"value":"-buildmode","description":"режим сборки"},
+      {"value":"-mod","description":"режим загрузки модулей"},
+      {"value":"-p","description":"число параллельных программ"},
+      {"value":"-a","description":"пересобрать все пакеты"},
+      {"value":"-n","description":"показать команды без выполнения"},
+      {"value":"-v","description":"показывать имена пакетов"},
+      {"value":"-x","description":"показывать выполняемые команды"},
+      {"value":"-work","description":"сохранить временную папку"}
+    ],
+    "go build -buildmode": [
+      {"value":"archive","description":"собрать пакет в .a"},
+      {"value":"c-archive","description":"собрать C archive"},
+      {"value":"c-shared","description":"собрать C shared library"},
+      {"value":"exe","description":"собрать executable"},
+      {"value":"pie","description":"position-independent executable"},
+      {"value":"plugin","description":"собрать Go plugin"},
+      {"value":"shared","description":"собрать shared library"}
+    ],
+    "go run": [
+      {"value":".","description":"запустить текущий пакет"},
+      {"value":"./...","description":"все пакеты модуля"},
+      {"value":"-race","description":"включить детектор гонок"},
+      {"value":"-tags","description":"build tags"},
+      {"value":"-exec","description":"запуск через внешнюю программу"},
+      {"value":"-mod","description":"режим загрузки модулей"},
+      {"value":"-trimpath","description":"убрать пути из бинарника"},
+      {"value":"-v","description":"показывать имена пакетов"},
+      {"value":"-x","description":"показывать команды"},
+      {"value":"-work","description":"сохранить временную папку"}
+    ],
+    "go test": [
+      {"value":".","description":"тестировать текущий пакет"},
+      {"value":"./...","description":"тестировать все пакеты"},
+      {"value":"-v","description":"подробный вывод тестов"},
+      {"value":"-run","description":"запустить тесты по regexp"},
+      {"value":"-bench","description":"запустить benchmarks"},
+      {"value":"-benchmem","description":"показать статистику памяти"},
+      {"value":"-count","description":"число повторов теста"},
+      {"value":"-cover","description":"показать покрытие"},
+      {"value":"-coverprofile","description":"записать профиль покрытия"},
+      {"value":"-race","description":"включить детектор гонок"},
+      {"value":"-timeout","description":"таймаут всего набора"},
+      {"value":"-shuffle","description":"случайный порядок тестов"},
+      {"value":"-failfast","description":"остановиться после первой ошибки"},
+      {"value":"-short","description":"пропускать долгие тесты"},
+      {"value":"-json","description":"вывод в JSON"},
+      {"value":"-parallel","description":"параллельные тесты"},
+      {"value":"-cpu","description":"значения GOMAXPROCS"},
+      {"value":"-tags","description":"build tags"},
+      {"value":"-c","description":"только собрать test binary"}
+    ],
+    "go mod": [
+      {"value":"download","description":"скачать модули в локальный кеш"},
+      {"value":"edit","description":"изменить go.mod"},
+      {"value":"graph","description":"показать граф зависимостей"},
+      {"value":"init","description":"создать новый go.mod"},
+      {"value":"tidy","description":"добавить недостающие и удалить лишние зависимости"},
+      {"value":"vendor","description":"создать vendor-копию зависимостей"},
+      {"value":"verify","description":"проверить содержимое зависимостей"},
+      {"value":"why","description":"объяснить необходимость модуля"}
+    ],
+    "go mod download": [
+      {"value":"-json","description":"вывод в JSON"},
+      {"value":"-reuse","description":"использовать предыдущий JSON"},
+      {"value":"-x","description":"показывать выполняемые команды"}
+    ],
+    "go mod edit": [
+      {"value":"-module","description":"изменить module path"},
+      {"value":"-go","description":"изменить версию Go"},
+      {"value":"-toolchain","description":"изменить toolchain"},
+      {"value":"-require","description":"добавить require"},
+      {"value":"-droprequire","description":"удалить require"},
+      {"value":"-replace","description":"добавить replace"},
+      {"value":"-dropreplace","description":"удалить replace"},
+      {"value":"-exclude","description":"добавить exclude"},
+      {"value":"-dropexclude","description":"удалить exclude"},
+      {"value":"-json","description":"вывод в JSON"},
+      {"value":"-print","description":"показать итоговый go.mod"}
+    ],
+    "go work": [
+      {"value":"edit","description":"изменить go.work"},
+      {"value":"init","description":"создать go.work"},
+      {"value":"sync","description":"синхронизировать build list"},
+      {"value":"use","description":"добавить или удалить модули"},
+      {"value":"vendor","description":"создать vendor для workspace"}
+    ],
+    "go work use": [
+      {"value":"-r","description":"рекурсивно искать модули"}
+    ],
+    "go env": [
+      {"value":"-json","description":"вывод в JSON"},
+      {"value":"-w","description":"сохранить значение переменной"},
+      {"value":"-u","description":"удалить сохранённое значение"},
+      {"value":"GOOS","description":"целевая операционная система"},
+      {"value":"GOARCH","description":"целевая архитектура"},
+      {"value":"GOPATH","description":"папка workspace Go"},
+      {"value":"GOROOT","description":"папка установки Go"},
+      {"value":"GOMOD","description":"путь к активному go.mod"},
+      {"value":"GOWORK","description":"путь к активному go.work"},
+      {"value":"GOPROXY","description":"proxy модулей"},
+      {"value":"GOPRIVATE","description":"приватные module patterns"},
+      {"value":"GOSUMDB","description":"база checksum"},
+      {"value":"CGO_ENABLED","description":"включение cgo"}
+    ],
+    "go get": [
+      {"value":"-u","description":"обновить зависимости"},
+      {"value":"-u=patch","description":"только patch-обновления"},
+      {"value":"-t","description":"включить test dependencies"},
+      {"value":"-tool","description":"добавить tool dependency"},
+      {"value":"-v","description":"подробный вывод"},
+      {"value":"-x","description":"показывать команды"}
+    ],
+    "go install": [
+      {"value":"-v","description":"показывать имена пакетов"},
+      {"value":"-race","description":"включить детектор гонок"},
+      {"value":"-tags","description":"build tags"},
+      {"value":"-ldflags","description":"аргументы linker"},
+      {"value":"-trimpath","description":"убрать пути"}
+    ],
+    "go list": [
+      {"value":".","description":"текущий пакет"},
+      {"value":"./...","description":"все пакеты модуля"},
+      {"value":"-m","description":"показывать модули"},
+      {"value":"-u","description":"показать доступные обновления"},
+      {"value":"-json","description":"вывод в JSON"},
+      {"value":"-f","description":"Go template для вывода"},
+      {"value":"-deps","description":"показывать зависимости"},
+      {"value":"-test","description":"включить test binaries"},
+      {"value":"-versions","description":"показать версии модулей"}
+    ],
+    "go fmt": [
+      {"value":"./...","description":"форматировать все пакеты модуля"},
+      {"value":".","description":"форматировать текущий пакет"},
+      {"value":"-n","description":"показать команды без выполнения"},
+      {"value":"-x","description":"показывать выполняемые команды"}
+    ],
+    "go clean": [
+      {"value":"-cache","description":"очистить build cache"},
+      {"value":"-testcache","description":"очистить test cache"},
+      {"value":"-modcache","description":"очистить module cache"},
+      {"value":"-fuzzcache","description":"очистить fuzz cache"},
+      {"value":"-n","description":"показать без выполнения"},
+      {"value":"-x","description":"показывать команды"}
+    ],
+    "go doc": [
+      {"value":"-all","description":"показать всю документацию"},
+      {"value":"-cmd","description":"обрабатывать main как обычный пакет"},
+      {"value":"-src","description":"показать исходный код"},
+      {"value":"-short","description":"краткое представление"}
+    ],
+    "go generate": [
+      {"value":"./...","description":"генерировать во всех пакетах"},
+      {"value":"-run","description":"директивы по regexp"},
+      {"value":"-skip","description":"пропустить директивы по regexp"},
+      {"value":"-n","description":"показать команды без выполнения"},
+      {"value":"-v","description":"показывать файлы"},
+      {"value":"-x","description":"показывать команды"}
+    ],
+    "go tool": [
+      {"value":"asm","description":"Go assembler"},
+      {"value":"buildid","description":"показать или изменить build ID"},
+      {"value":"compile","description":"Go compiler"},
+      {"value":"cover","description":"инструменты покрытия"},
+      {"value":"link","description":"Go linker"},
+      {"value":"nm","description":"показать symbols"},
+      {"value":"objdump","description":"дизассемблировать executable"},
+      {"value":"pprof","description":"анализ profiling data"},
+      {"value":"test2json","description":"преобразовать test output в JSON"},
+      {"value":"trace","description":"просмотреть execution trace"},
+      {"value":"vet","description":"статический анализ"}
+    ],
+    "go telemetry": [
+      {"value":"on","description":"включить отправку telemetry"},
+      {"value":"off","description":"выключить telemetry"},
+      {"value":"local","description":"хранить telemetry локально"}
+    ],
+    "gofmt": [
+      {"value":"-w","description":"записать результат в файл"},
+      {"value":"-d","description":"показать diff"},
+      {"value":"-l","description":"показать неформатированные файлы"},
+      {"value":"-s","description":"упростить код"},
+      {"value":"-e","description":"показать все ошибки"},
+      {"value":"-r","description":"rewrite rule"}
+    ],
+    "goimports": [
+      {"value":"-w","description":"записать результат в файл"},
+      {"value":"-d","description":"показать diff"},
+      {"value":"-l","description":"показать изменённые файлы"},
+      {"value":"-local","description":"prefix локальных imports"},
+      {"value":"-format-only","description":"не исправлять imports"}
+    ],
+    "gopls": [
+      {"value":"serve","description":"запустить LSP server"},
+      {"value":"version","description":"показать версию"},
+      {"value":"check","description":"диагностика файлов"},
+      {"value":"definition","description":"найти definition"},
+      {"value":"references","description":"найти references"},
+      {"value":"rename","description":"переименовать symbol"},
+      {"value":"symbols","description":"показать symbols файла"},
+      {"value":"workspace_symbol","description":"найти symbol в workspace"},
+      {"value":"imports","description":"обновить imports"},
+      {"value":"format","description":"форматировать файл"},
+      {"value":"folding_ranges","description":"показать folding ranges"},
+      {"value":"api-json","description":"экспортировать API в JSON"}
+    ],
+    "dlv": [
+      {"value":"debug","description":"собрать и отладить текущий пакет"},
+      {"value":"test","description":"отладить тесты"},
+      {"value":"exec","description":"отладить готовый binary"},
+      {"value":"attach","description":"подключиться к процессу"},
+      {"value":"connect","description":"подключиться к headless server"},
+      {"value":"core","description":"исследовать core dump"},
+      {"value":"dap","description":"запустить DAP server"},
+      {"value":"trace","description":"trace функций"},
+      {"value":"version","description":"показать версию"}
+    ],
+    "dlv debug": [
+      {"value":"--headless","description":"запустить без terminal client"},
+      {"value":"--listen","description":"адрес debug server"},
+      {"value":"--api-version","description":"версия API"},
+      {"value":"--accept-multiclient","description":"разрешить несколько клиентов"},
+      {"value":"--continue","description":"продолжить после старта"},
+      {"value":"--build-flags","description":"флаги go build"},
+      {"value":"--output","description":"имя debug binary"},
+      {"value":"--","description":"аргументы отлаживаемой программы"}
+    ],
+    "dlv test": [
+      {"value":"--headless","description":"запустить без terminal client"},
+      {"value":"--listen","description":"адрес debug server"},
+      {"value":"--build-flags","description":"флаги go test"},
+      {"value":"--","description":"аргументы test binary"}
+    ],
+    "golangci-lint": [
+      {"value":"run","description":"запустить линтеры"},
+      {"value":"fmt","description":"запустить formatters"},
+      {"value":"linters","description":"показать доступные линтеры"},
+      {"value":"config","description":"проверить конфигурацию"},
+      {"value":"cache","description":"управление кешем"},
+      {"value":"version","description":"показать версию"},
+      {"value":"completion","description":"создать shell completion"}
+    ],
+    "golangci-lint run": [
+      {"value":"./...","description":"проверить все пакеты"},
+      {"value":"--fix","description":"автоматически исправлять"},
+      {"value":"--timeout","description":"таймаут анализа"},
+      {"value":"--config","description":"путь к конфигурации"},
+      {"value":"--enable","description":"включить линтер"},
+      {"value":"--disable","description":"выключить линтер"},
+      {"value":"--enable-only","description":"включить только указанные"},
+      {"value":"--new","description":"только новые проблемы"},
+      {"value":"--new-from-rev","description":"проблемы после revision"},
+      {"value":"--issues-exit-code","description":"exit code при проблемах"},
+      {"value":"--output.json.path","description":"записать JSON output"}
+    ],
+    "staticcheck": [
+      {"value":"./...","description":"проверить все пакеты"},
+      {"value":"-checks","description":"список проверок"},
+      {"value":"-explain","description":"описать проверку"},
+      {"value":"-f","description":"формат вывода"},
+      {"value":"-go","description":"целевая версия Go"},
+      {"value":"-list-checks","description":"показать все проверки"},
+      {"value":"-tags","description":"build tags"},
+      {"value":"-tests","description":"анализировать тесты"},
+      {"value":"-version","description":"показать версию"}
+    ],
+    "gotestsum": [
+      {"value":"./...","description":"тестировать все пакеты"},
+      {"value":"--format","description":"формат вывода"},
+      {"value":"--jsonfile","description":"записать test2json"},
+      {"value":"--junitfile","description":"создать JUnit XML"},
+      {"value":"--rerun-fails","description":"повторить упавшие тесты"},
+      {"value":"--watch","description":"перезапускать при изменениях"},
+      {"value":"--","description":"следующие аргументы передать go test"}
+    ],
+    "goreleaser": [
+      {"value":"build","description":"собрать текущий проект"},
+      {"value":"check","description":"проверить конфигурацию"},
+      {"value":"healthcheck","description":"проверить необходимые tools"},
+      {"value":"init","description":"создать .goreleaser.yaml"},
+      {"value":"release","description":"создать release"},
+      {"value":"schema","description":"вывести JSON schema"},
+      {"value":"completion","description":"создать shell completion"}
+    ],
+    "goreleaser build": [
+      {"value":"--clean","description":"удалить dist перед сборкой"},
+      {"value":"--snapshot","description":"snapshot build"},
+      {"value":"--single-target","description":"только текущая платформа"},
+      {"value":"--id","description":"только указанные build IDs"},
+      {"value":"--config","description":"путь к конфигурации"}
+    ],
+    "goreleaser release": [
+      {"value":"--clean","description":"удалить dist перед release"},
+      {"value":"--snapshot","description":"snapshot release"},
+      {"value":"--skip","description":"пропустить указанную pipe"},
+      {"value":"--skip-publish","description":"не публиковать artifacts"},
+      {"value":"--auto-snapshot","description":"snapshot для dirty repo"},
+      {"value":"--config","description":"путь к конфигурации"},
+      {"value":"--timeout","description":"общий таймаут"}
+    ],
+    "goctl": [
+      {"value":"api","description":"генерация API"},
+      {"value":"docker","description":"создать Dockerfile"},
+      {"value":"env","description":"проверить окружение goctl"},
+      {"value":"kube","description":"создать Kubernetes manifests"},
+      {"value":"migrate","description":"миграция старого проекта"},
+      {"value":"model","description":"генерация model code"},
+      {"value":"new","description":"быстро создать сервис"},
+      {"value":"rpc","description":"генерация RPC code"},
+      {"value":"template","description":"управление templates"},
+      {"value":"upgrade","description":"обновить goctl"}
+    ],
+    "air": [
+      {"value":"init","description":"создать .air.toml"},
+      {"value":"-c","description":"путь к конфигурации"},
+      {"value":"-d","description":"debug mode"},
+      {"value":"-v","description":"показать версию"}
+    ],
+    "mockgen": [
+      {"value":"-source","description":"source mode: входной Go-файл"},
+      {"value":"-destination","description":"выходной файл"},
+      {"value":"-package","description":"package выходного файла"},
+      {"value":"-imports","description":"явные imports"},
+      {"value":"-mock_names","description":"имена generated mocks"},
+      {"value":"-copyright_file","description":"copyright header"},
+      {"value":"-write_package_comment","description":"создать package comment"}
+    ],
+    "govulncheck": [
+      {"value":"./...","description":"проверить все пакеты"},
+      {"value":"-json","description":"вывод в JSON"},
+      {"value":"-mode","description":"source, binary или extract"},
+      {"value":"-scan","description":"module, package или symbol"},
+      {"value":"-show","description":"дополнительные сведения"},
+      {"value":"-test","description":"анализировать test files"},
+      {"value":"-version","description":"показать версию"}
+    ],
+    "stringer": [
+      {"value":"-type","description":"имя integer-типа"},
+      {"value":"-output","description":"выходной файл"},
+      {"value":"-linecomment","description":"использовать line comments"},
+      {"value":"-tags","description":"build tags"},
+      {"value":"-trimprefix","description":"удалить prefix из имён"}
+    ]
+  }
+}

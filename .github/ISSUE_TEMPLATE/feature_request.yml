@@ -1,0 +1,16 @@
+name: Новая возможность
+description: Предложить улучшение Metuur
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: Какую задачу нужно решить?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Предлагаемое поведение
+      description: Покажите пример команды или интерфейса, если возможно.
+    validations:
+      required: true

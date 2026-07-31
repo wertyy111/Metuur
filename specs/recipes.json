@@ -1,0 +1,51 @@
+{
+  "recipes": [
+    {"id":"go.build","phrase":"go build","description":"собрать найденный файл или пакет","workspace":true},
+    {"id":"go.run","phrase":"go run","description":"запустить найденную Go-программу","workspace":true},
+    {"id":"go.fmt","phrase":"go fmt","description":"форматировать найденные Go-файлы","workspace":true},
+    {"id":"go.test","phrase":"go test","description":"запустить найденные тесты","workspace":true},
+    {"id":"go.vet","phrase":"go vet","description":"проверить найденный Go-код","workspace":true},
+    {"id":"go.generate","phrase":"go generate","description":"выполнить найденные go:generate","workspace":true},
+    {"id":"go.fix","phrase":"go fix","description":"обновить API найденного кода","workspace":true},
+    {"id":"go.list","phrase":"go list","description":"показать найденные пакеты","workspace":true},
+    {"id":"go.install","phrase":"go install","description":"установить найденную Go-программу","workspace":true},
+    {"id":"go.doc","phrase":"go doc","description":"документация найденного пакета","workspace":true},
+    {"id":"go.clean","phrase":"go clean","description":"очистить найденный Go-модуль","workspace":true},
+    {"id":"go.get","phrase":"go get","description":"добавить зависимость в найденный модуль","workspace":true},
+
+    {"id":"go.mod.download","phrase":"go mod download","description":"скачать зависимости найденного модуля","workspace":true},
+    {"id":"go.mod.edit","phrase":"go mod edit","description":"изменить найденный go.mod","workspace":true},
+    {"id":"go.mod.graph","phrase":"go mod graph","description":"граф зависимостей найденного модуля","workspace":true},
+    {"id":"go.mod.init","phrase":"go mod init","description":"создать go.mod для открытой папки","workspace":true},
+    {"id":"go.mod.tidy","phrase":"go mod tidy","description":"нормализовать найденный go.mod","workspace":true},
+    {"id":"go.mod.vendor","phrase":"go mod vendor","description":"создать vendor найденного модуля","workspace":true},
+    {"id":"go.mod.verify","phrase":"go mod verify","description":"проверить зависимости найденного модуля","workspace":true},
+    {"id":"go.mod.why","phrase":"go mod why","description":"объяснить зависимость найденного модуля","workspace":true},
+
+    {"id":"go.work.init","phrase":"go work init","description":"создать go.work из найденных модулей","workspace":true},
+    {"id":"go.work.use","phrase":"go work use","description":"добавить найденные модули в go.work","workspace":true},
+    {"id":"go.work.sync","phrase":"go work sync","description":"синхронизировать найденный go.work","workspace":true},
+    {"id":"go.work.vendor","phrase":"go work vendor","description":"создать vendor для go.work","workspace":true},
+
+    {"id":"go.env","phrase":"go env","description":"показать окружение Go","workspace":false},
+    {"id":"go.version","phrase":"go version","description":"показать версию Go","workspace":false},
+    {"id":"go.telemetry","phrase":"go telemetry","description":"управлять телеметрией Go","workspace":false},
+    {"id":"go.bug","phrase":"go bug","description":"создать отчёт об ошибке Go","workspace":false},
+
+    {"id":"gofmt","phrase":"gofmt","description":"форматировать найденный Go-файл","workspace":true},
+    {"id":"goimports","phrase":"goimports","description":"обновить imports найденного файла","workspace":true},
+    {"id":"gopls.check","phrase":"gopls check","description":"диагностика найденного Go-файла","workspace":true},
+    {"id":"gopls.format","phrase":"gopls format","description":"форматировать найденный Go-файл","workspace":true},
+    {"id":"gopls.imports","phrase":"gopls imports","description":"обновить imports найденного файла","workspace":true},
+    {"id":"gopls.symbols","phrase":"gopls symbols","description":"показать символы найденного файла","workspace":true},
+    {"id":"dlv.debug","phrase":"dlv debug","description":"отладить найденную Go-программу","workspace":true},
+    {"id":"dlv.test","phrase":"dlv test","description":"отладить найденные тесты","workspace":true},
+    {"id":"golangci.run","phrase":"golangci-lint run","description":"проверить найденный Go-модуль","workspace":true},
+    {"id":"staticcheck","phrase":"staticcheck","description":"проверить найденный Go-модуль","workspace":true},
+    {"id":"gotestsum","phrase":"gotestsum","description":"запустить тесты найденного модуля","workspace":true},
+    {"id":"govulncheck","phrase":"govulncheck","description":"проверить уязвимости найденного модуля","workspace":true},
+    {"id":"goreleaser.check","phrase":"goreleaser check","description":"проверить release-конфигурацию","workspace":true},
+    {"id":"air","phrase":"air","description":"запустить live reload найденного модуля","workspace":true},
+    {"id":"mockgen","phrase":"mockgen","description":"создать mock из найденного Go-файла","workspace":true}
+  ]
+}
