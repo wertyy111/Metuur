@@ -10,6 +10,7 @@ import (
 	"github.com/wertyy111/metuur/internal/app"
 	"github.com/wertyy111/metuur/internal/config"
 	"github.com/wertyy111/metuur/internal/console"
+	"github.com/wertyy111/metuur/internal/localai"
 	"github.com/wertyy111/metuur/internal/shell"
 )
 
@@ -38,6 +39,8 @@ func run(args []string) error {
 			return configCommand(args[1:])
 		case "doctor":
 			return doctor()
+		case "ai":
+			return aiCommand(args[1:])
 		default:
 			return fmt.Errorf("unknown command %q; run metuur help", args[0])
 		}
@@ -48,6 +51,20 @@ func run(args []string) error {
 		return err
 	}
 	return app.Run(cfg, version)
+}
+
+func aiCommand(args []string) error {
+	if len(args) > 0 && args[0] != "status" {
+		return fmt.Errorf("unknown ai action %q (use status)", args[0])
+	}
+	model := localai.Load(config.ModelPath())
+	stats := model.Stats()
+	fmt.Println("Metuur local AI")
+	fmt.Println("  Mode:        offline intent engine + adaptive ranking")
+	fmt.Printf("  Learned:     %d commands\n", stats.Commands)
+	fmt.Printf("  Model size:  %d bytes\n", stats.Bytes)
+	fmt.Printf("  Model path:  %s\n", config.ModelPath())
+	return nil
 }
 
 func configCommand(args []string) error {
@@ -118,6 +135,7 @@ func printHelp() {
 Usage:
   metuur                 start the interactive PowerShell shell
   metuur doctor          check Windows, terminal and shell support
+  metuur ai status       show the tiny offline model status
   metuur config init     create the default config
   metuur config show     print the active config
   metuur config path     print the config file path

@@ -17,6 +17,7 @@ type Theme struct {
 type Config struct {
 	Prompt           string `json:"prompt"`
 	Shell            string `json:"shell"`
+	LocalAIEnabled   bool   `json:"localAIEnabled"`
 	MaxSuggestions   int    `json:"maxSuggestions"`
 	MaxHistory       int    `json:"maxHistory"`
 	ShowDescriptions bool   `json:"showDescriptions"`
@@ -28,6 +29,7 @@ func Default() Config {
 	return Config{
 		Prompt:           "λ ",
 		Shell:            "auto",
+		LocalAIEnabled:   true,
 		MaxSuggestions:   5,
 		MaxHistory:       5000,
 		ShowDescriptions: true,
@@ -68,6 +70,10 @@ func Path() string {
 
 func HistoryPath() string {
 	return filepath.Join(Dir(), "history.txt")
+}
+
+func ModelPath() string {
+	return filepath.Join(Dir(), "micro-ai.json")
 }
 
 // MigrateLegacy copies existing WIRIS settings and history on the first Metuur run.

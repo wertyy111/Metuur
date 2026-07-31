@@ -38,25 +38,38 @@ the Software, subject to all of the following conditions:
    versions, must include this license, the copyright notice above, and a
    prominent notice describing that the Software was modified.
 
-5. No Sublicensing Under Different Terms
+5. Notice Before Public Distribution of Modifications
+
+   Private modifications that are not shared with anyone else do not require
+   notice. Before first publicly distributing, publishing, or offering access
+   to a modified version, you must notify the copyright holder by opening an
+   issue in the official Metuur repository at
+   https://github.com/wertyy111/Metuur/issues or by using another contact method
+   publicly designated there. The notice must identify the modified version,
+   where it will be available, and summarize the substantial changes.
+
+   Notice is a condition of redistribution, not a request for approval. It does
+   not grant permission to use the Metuur name or imply endorsement.
+
+6. No Sublicensing Under Different Terms
 
    You may not sublicense the Software or a modified version under terms that
    permit conduct prohibited by this license. Additional terms may be applied
    only when they do not reduce the rights or protections in this license.
 
-6. Termination
+7. Termination
 
    Your rights under this license terminate automatically if you violate any
    condition. They are reinstated if you fully correct the violation within
    30 days after you first receive written notice of it. Reinstatement does
    not prevent claims for the period of violation.
 
-7. No Trademark License
+8. No Trademark License
 
    This license does not grant permission to use the Metuur name, logo, or
    trademarks to imply endorsement of a modified or redistributed version.
 
-8. Disclaimer of Warranty and Limitation of Liability
+9. Disclaimer of Warranty and Limitation of Liability
 
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
