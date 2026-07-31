@@ -13,7 +13,7 @@ import (
 const (
 	boxWidth     = 76
 	contentWidth = boxWidth - 2
-	labelWidth   = 36
+	labelWidth   = 32
 )
 
 type Renderer struct {
@@ -31,9 +31,10 @@ func (r *Renderer) Redraw(buffer []rune, cursor int, suggestions []suggest.Sugge
 	line := string(buffer)
 	fmt.Fprintf(
 		r.out,
-		"\x1b[?25l\r\x1b[2K\x1b[38;5;%sm%s\x1b[0m\x1b[38;5;121m%s\x1b[0m",
-		r.cfg.Theme.Accent,
+		"\x1b[?25l\r\x1b[2K\x1b[38;5;%sm%s\x1b[0m\x1b[38;5;%sm%s\x1b[0m",
+		r.cfg.Theme.Logo,
 		r.cfg.Prompt,
+		r.cfg.Theme.Command,
 		line,
 	)
 
@@ -83,10 +84,9 @@ func (r *Renderer) reserveMenuSpace(lines, column int) {
 
 func (r *Renderer) menu(line string, suggestions []suggest.Suggestion, selected int, mode suggest.Mode) []string {
 	counter := fmt.Sprintf("%d/%d", selected+1, len(suggestions))
-	top := borderLine("╭─ "+counter+" ", "╮")
 	start, end := suggestionWindow(len(suggestions), selected, r.cfg.MaxSuggestions)
 	lines := make([]string, 0, end-start+2)
-	lines = append(lines, r.accent(top))
+	lines = append(lines, r.topBorder(counter))
 
 	for i := start; i < end; i++ {
 		item := suggestions[i]
@@ -95,7 +95,7 @@ func (r *Renderer) menu(line string, suggestions []suggest.Suggestion, selected 
 			selector = ">"
 		}
 		icon := kindIcon(item.Kind)
-		descriptionWidth := contentWidth - 5 - labelWidth
+		descriptionWidth := contentWidth - 7 - labelWidth
 		label := fit(item.Label, labelWidth)
 		description := ""
 		if r.cfg.ShowDescriptions {
@@ -103,7 +103,7 @@ func (r *Renderer) menu(line string, suggestions []suggest.Suggestion, selected 
 		} else {
 			description = strings.Repeat(" ", descriptionWidth)
 		}
-		content := " " + selector + " " + icon + " " + label + description
+		content := " " + selector + " " + icon + " " + label + "  " + description
 		content = fit(content, contentWidth)
 
 		if i == selected {
@@ -116,8 +116,8 @@ func (r *Renderer) menu(line string, suggestions []suggest.Suggestion, selected 
 		left := " " + selector + " " + icon + " "
 		lines = append(lines,
 			r.accent("│")+
-				fmt.Sprintf("\x1b[38;5;121m%s%s\x1b[0m", left, label)+
-				fmt.Sprintf("\x1b[38;5;%sm%s\x1b[0m", r.cfg.Theme.Muted, description)+
+				fmt.Sprintf("\x1b[38;5;%sm%s%s\x1b[0m", r.cfg.Theme.Command, left, label)+
+				fmt.Sprintf("\x1b[38;5;%sm  %s\x1b[0m", r.cfg.Theme.Muted, description)+
 				r.accent("│"),
 		)
 	}
@@ -153,9 +153,10 @@ func (r *Renderer) PrepareCommand(line string) {
 	r.menuLines = 0
 	fmt.Fprintf(
 		r.out,
-		"\x1b[?25h\r\x1b[2K\x1b[38;5;%sm%s\x1b[0m\x1b[38;5;121m%s\x1b[0m\r\n",
-		r.cfg.Theme.Accent,
+		"\x1b[?25h\r\x1b[2K\x1b[38;5;%sm%s\x1b[0m\x1b[38;5;%sm%s\x1b[0m\r\n",
+		r.cfg.Theme.Logo,
 		r.cfg.Prompt,
+		r.cfg.Theme.Command,
 		line,
 	)
 }
@@ -188,6 +189,19 @@ func (r *Renderer) clearMenu() {
 
 func (r *Renderer) accent(value string) string {
 	return fmt.Sprintf("\x1b[38;5;%sm%s\x1b[0m", r.cfg.Theme.Accent, value)
+}
+
+func (r *Renderer) topBorder(counter string) string {
+	prefix := "╭─ "
+	logo := "METUUR"
+	suffixStart := " · " + counter + " "
+	remaining := boxWidth - utf8.RuneCountInString(prefix+logo+suffixStart) - 1
+	if remaining < 0 {
+		remaining = 0
+	}
+	return r.accent(prefix) +
+		fmt.Sprintf("\x1b[1;38;5;%sm%s\x1b[0m", r.cfg.Theme.Logo, logo) +
+		r.accent(suffixStart+strings.Repeat("─", remaining)+"╮")
 }
 
 func borderLine(start, end string) string {

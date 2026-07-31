@@ -259,6 +259,17 @@ func IsCommandFailure(err error) bool {
 	return errors.As(err, &failure)
 }
 
+func ExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var failure *CommandFailure
+	if errors.As(err, &failure) {
+		return failure.ExitCode
+	}
+	return 1
+}
+
 func (r *Runner) resetProcess() {
 	r.cmd = nil
 	r.stdin = nil
