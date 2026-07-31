@@ -92,7 +92,7 @@ func (r *Renderer) menu(line string, suggestions []suggest.Suggestion, selected 
 		item := suggestions[i]
 		selector := " "
 		if i == selected {
-			selector = "▶"
+			selector = ">"
 		}
 		icon := kindIcon(item.Kind)
 		descriptionWidth := contentWidth - 5 - labelWidth
@@ -225,6 +225,8 @@ func kindIcon(kind string) string {
 		return "◆"
 	case "git":
 		return "◆"
+	case "intent", "ai":
+		return "*"
 	default:
 		return "›"
 	}

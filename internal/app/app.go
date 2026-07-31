@@ -10,6 +10,7 @@ import (
 	"github.com/wertyy111/metuur/internal/config"
 	winconsole "github.com/wertyy111/metuur/internal/console"
 	"github.com/wertyy111/metuur/internal/history"
+	"github.com/wertyy111/metuur/internal/localai"
 	"github.com/wertyy111/metuur/internal/shell"
 	"github.com/wertyy111/metuur/internal/suggest"
 	"github.com/wertyy111/metuur/internal/ui"
@@ -32,6 +33,9 @@ func Run(cfg config.Config, version string) error {
 	engine, err := suggest.New(store, cfg.ShowHiddenFiles)
 	if err != nil {
 		return err
+	}
+	if cfg.LocalAIEnabled {
+		engine.SetLocalAI(localai.Load(config.ModelPath()))
 	}
 	renderer := ui.New(os.Stdout, cfg)
 
@@ -229,7 +233,8 @@ func Run(cfg config.Config, version string) error {
 					suggestions[selected].Kind == "format" ||
 					suggestions[selected].Kind == "build" ||
 					suggestions[selected].Kind == "workspace" ||
-					suggestions[selected].Kind == "intent") &&
+					suggestions[selected].Kind == "intent" ||
+					suggestions[selected].Kind == "ai") &&
 				!strings.HasSuffix(suggestions[selected].Insert, " ") &&
 				!strings.EqualFold(strings.TrimSpace(string(buffer)), strings.TrimSpace(suggestions[selected].Insert)) {
 				accept()
@@ -245,6 +250,10 @@ func Run(cfg config.Config, version string) error {
 				continue
 			}
 
+			commandCwd, cwdErr := os.Getwd()
+			if cwdErr != nil {
+				commandCwd = "."
+			}
 			if suspendErr := terminal.Suspend(); suspendErr != nil {
 				return suspendErr
 			}
@@ -255,6 +264,9 @@ func Run(cfg config.Config, version string) error {
 			}
 			if runErr != nil && !shell.IsCommandFailure(runErr) {
 				renderer.Error(runErr)
+			}
+			if runErr == nil {
+				engine.Learn(line, commandCwd)
 			}
 			store.Add(line)
 			historyItems = append(historyItems, line)

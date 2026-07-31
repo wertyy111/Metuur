@@ -50,7 +50,7 @@ func TestRendererUsesScrollableSuggestionWindow(t *testing.T) {
 		!strings.Contains(rendered, "vet") || strings.Contains(rendered, "build") {
 		t.Fatalf("suggestion window did not follow selection: %q", rendered)
 	}
-	if strings.Contains(rendered, "Metuur 0.2.0") || !strings.Contains(rendered, "╭─ 4/5") {
+	if strings.Contains(rendered, "Metuur 0.2.1") || !strings.Contains(rendered, "╭─ 4/5") {
 		t.Fatalf("top border should contain only the counter: %q", rendered)
 	}
 }

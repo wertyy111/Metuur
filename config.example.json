@@ -1,6 +1,7 @@
 {
   "prompt": "λ ",
   "shell": "auto",
+  "localAIEnabled": true,
   "maxSuggestions": 5,
   "maxHistory": 5000,
   "showDescriptions": true,

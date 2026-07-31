@@ -13,11 +13,13 @@ import (
 	"strings"
 
 	"github.com/wertyy111/metuur/internal/history"
+	"github.com/wertyy111/metuur/internal/localai"
 	"github.com/wertyy111/metuur/specs"
 )
 
 type Engine struct {
 	history    *history.Store
+	localAI    *localai.Model
 	root       []specItem
 	contexts   map[string][]specItem
 	recipes    []recipe
@@ -43,6 +45,7 @@ func New(store *history.Store, showHidden bool) (*Engine, error) {
 	}
 	return &Engine{
 		history:    store,
+		localAI:    localai.NewMemory(),
 		root:       file.Root,
 		contexts:   file.Contexts,
 		recipes:    recipes.Recipes,
@@ -63,6 +66,7 @@ func (e *Engine) Suggest(line, cwd string, mode Mode, limit int) []Suggestion {
 		return rankAndLimit(recipes, limit)
 	}
 	result := make([]Suggestion, 0, limit*3)
+	result = append(result, intentSuggestions(line, cwd)...)
 	result = append(result, goStarterSuggestions(cwd, parsed)...)
 	result = append(result, e.goRunSuggestions(line, cwd, parsed)...)
 	result = append(result, e.goFormatSuggestions(cwd, parsed)...)
@@ -72,8 +76,32 @@ func (e *Engine) Suggest(line, cwd string, mode Mode, limit int) []Suggestion {
 	if !hasWorkspaceTargetContext(parsed) {
 		result = append(result, e.fileSuggestions(line, cwd, parsed)...)
 	}
+	if e.localAI != nil {
+		for index := range result {
+			result[index].Score += e.localAI.Score(result[index].Insert, cwd)
+		}
+		for _, prediction := range e.localAI.Predict(line, cwd, 8) {
+			result = append(result, Suggestion{
+				Label:       compactCommandLabel(prediction.Command),
+				Insert:      prediction.Command,
+				Description: "локальный AI · знакомая команда в этой папке",
+				Kind:        "ai",
+				Score:       470 + prediction.Score,
+			})
+		}
+	}
 
 	return rankAndLimit(result, limit)
+}
+
+func (e *Engine) SetLocalAI(model *localai.Model) {
+	e.localAI = model
+}
+
+func (e *Engine) Learn(command, cwd string) {
+	if e.localAI != nil {
+		e.localAI.Learn(command, cwd)
+	}
 }
 
 func hasWorkspaceTargetContext(parsed parseResult) bool {
