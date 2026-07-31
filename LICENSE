@@ -1,21 +1,70 @@
-MIT License
+Metuur Free Use — No Sale License 1.0
 
-Copyright (c) 2026 Metuur contributors
+Copyright (c) 2026 wertyy111 and Metuur contributors
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is granted, free of charge, to any person obtaining a copy of this
+software and associated documentation files (the "Software"), to use, copy,
+modify, merge, publish, and distribute the Software and modified versions of
+the Software, subject to all of the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. No Sale of Copies
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+   You may not sell, license for a fee, rent, lease, or otherwise charge money
+   or other compensation specifically for access to or copies of the Software,
+   whether in source-code, executable, archive, installer, or modified form.
+
+   You may not avoid this condition by bundling the Software with insignificant
+   additions when the Software remains the primary or substantial value of the
+   transaction.
+
+2. Free Redistribution
+
+   Any redistribution of the Software or a modified version must be available
+   to its recipients free of charge. You may recover only reasonable, direct
+   costs of physical media and delivery, without profit.
+
+3. Commercial Use as a Tool
+
+   You may use the Software internally for personal, educational, nonprofit,
+   or commercial work. You may charge for your own services, support,
+   consulting, or other work produced with the Software, provided that you do
+   not charge for the Software or a copy of it and the Software is not the
+   primary or substantial value being sold.
+
+4. Modifications and Attribution
+
+   You may create and distribute modified versions under these same terms.
+   Every copy or substantial portion of the Software, including modified
+   versions, must include this license, the copyright notice above, and a
+   prominent notice describing that the Software was modified.
+
+5. No Sublicensing Under Different Terms
+
+   You may not sublicense the Software or a modified version under terms that
+   permit conduct prohibited by this license. Additional terms may be applied
+   only when they do not reduce the rights or protections in this license.
+
+6. Termination
+
+   Your rights under this license terminate automatically if you violate any
+   condition. They are reinstated if you fully correct the violation within
+   30 days after you first receive written notice of it. Reinstatement does
+   not prevent claims for the period of violation.
+
+7. No Trademark License
+
+   This license does not grant permission to use the Metuur name, logo, or
+   trademarks to imply endorsement of a modified or redistributed version.
+
+8. Disclaimer of Warranty and Limitation of Liability
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+   FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE.
+
+This is a source-available license and is not an OSI-approved open-source
+license because it restricts the sale of copies.

@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://github.com/wertyy111/Metuur/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/wertyy111/Metuur/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/wertyy111/Metuur/releases"><img alt="Release" src="https://img.shields.io/github/v/release/wertyy111/Metuur?display_name=tag"></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/wertyy111/Metuur"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-free_use_%C2%B7_no_sale-blue"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4">
   <img alt="Go" src="https://img.shields.io/badge/Go-1.24%2B-00ADD8">
 </p>
@@ -124,5 +124,12 @@ scripts           установка, удаление и автозапуск
 
 ## Лицензия
 
-[MIT](LICENSE). Metuur является самостоятельной реализацией; IRIS использован
-как продуктовый и архитектурный ориентир.
+[Metuur Free Use — No Sale License 1.0](LICENSE) разрешает бесплатно
+использовать, изменять и распространять проект, но запрещает продавать
+исходники, бинарные файлы и изменённые копии. Коммерчески использовать Metuur
+как инструмент и брать деньги за собственную работу или поддержку разрешено.
+Доступно [русское пояснение](LICENSE-RU.md).
+
+Из-за запрета продажи это source-available, а не OSI open source. Metuur
+является самостоятельной реализацией; IRIS использован как продуктовый и
+архитектурный ориентир.
