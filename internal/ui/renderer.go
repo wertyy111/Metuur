@@ -45,6 +45,19 @@ var irisPalette = struct {
 	Ghost:               "#4b4a4c",
 }
 
+var wavePalette = [...]string{
+	"#a277ff",
+	"#9b82ff",
+	"#8f9cff",
+	"#7bbbea",
+	"#6ddbd8",
+	"#61ffca",
+	"#6ddbd8",
+	"#7bbbea",
+}
+
+var waveGlyphs = [...]rune{'▁', '▂', '▃', '▄', '▅', '▆', '▇', '█', '▇', '▆', '▅', '▄', '▃', '▂'}
+
 type Renderer struct {
 	out        io.Writer
 	cfg        config.Config
@@ -54,6 +67,35 @@ type Renderer struct {
 
 func New(out io.Writer, cfg config.Config) *Renderer {
 	return &Renderer{out: out, cfg: cfg}
+}
+
+// DrawWave paints an animated header into the first terminal row without
+// emitting a newline or changing the editable PowerShell cursor. One column is
+// deliberately left unused so terminals with auto-wrap enabled cannot scroll.
+func (r *Renderer) DrawWave(terminalWidth, frame int) {
+	width := max(terminalWidth-1, 0)
+	if width == 0 {
+		return
+	}
+
+	var line strings.Builder
+	for column := 0; column < width; column++ {
+		phase := column + frame
+		line.WriteString(fg(wavePalette[phase%len(wavePalette)]))
+		line.WriteRune(waveGlyphs[phase%len(waveGlyphs)])
+	}
+
+	var output strings.Builder
+	output.WriteString(ansiAutoWrapOff)
+	output.WriteString(ansiSaveCursor)
+	output.WriteString("\x1b[1;1H")
+	output.WriteString(ansiEraseLine)
+	output.WriteString(line.String())
+	output.WriteString(ansiReset)
+	output.WriteString(ansiRestoreCursor)
+	output.WriteString(ansiAutoWrapOn)
+	output.WriteString(ansiShowCursor)
+	_, _ = io.WriteString(r.out, output.String())
 }
 
 // ClearOverlay removes only Metuur's transient pixels. PowerShell continues to

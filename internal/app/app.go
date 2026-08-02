@@ -25,6 +25,7 @@ import (
 const (
 	overlayDelay        = 20 * time.Millisecond
 	escapeSequenceDelay = 35 * time.Millisecond
+	waveFrameDelay      = 90 * time.Millisecond
 )
 
 func Run(cfg config.Config, version string) error {
@@ -145,6 +146,8 @@ func Run(cfg config.Config, version string) error {
 		ready              bool
 		executing          = true
 		initialPrompt      = true
+		waveActive         bool
+		waveFrame          int
 		lastCommand        string
 		commandCWD         = cwd
 		lastExitCode       int
@@ -271,6 +274,8 @@ func Run(cfg config.Config, version string) error {
 
 	resizeTicker := time.NewTicker(250 * time.Millisecond)
 	defer resizeTicker.Stop()
+	waveTicker := time.NewTicker(waveFrameDelay)
+	defer waveTicker.Stop()
 	var aiResults <-chan localai.Completion
 	if aiCompleter != nil {
 		aiResults = aiCompleter.Results()
@@ -312,6 +317,9 @@ func Run(cfg config.Config, version string) error {
 				if _, writeErr := screen.Write([]byte("\r\n")); writeErr != nil {
 					return writeErr
 				}
+				waveActive = true
+				waveFrame = 0
+				renderer.DrawWave(lastWidth, waveFrame)
 				initialPrompt = false
 			}
 			close(event.acknowledged)
@@ -478,6 +486,9 @@ func Run(cfg config.Config, version string) error {
 				case strokeEnter:
 					renderer.Reset()
 					stopRender()
+					// The wave owns only the row reserved above the initial prompt.
+					// Stop updating it before child output is allowed to scroll.
+					waveActive = false
 					if userNavigated && suggestionsEnabled && !hiddenUntilInput && selected >= 0 && selected < len(suggestions) {
 						value := strings.TrimSpace(suggestions[selected].Insert)
 						if mode == suggest.ModeSpec && value != "" && !strings.HasSuffix(value, "/") && !strings.HasSuffix(value, `\`) {
@@ -534,6 +545,12 @@ func Run(cfg config.Config, version string) error {
 		case <-renderTimerC:
 			renderTimerC = nil
 			redraw()
+
+		case <-waveTicker.C:
+			if waveActive && ready && !executing {
+				waveFrame++
+				renderer.DrawWave(lastWidth, waveFrame)
+			}
 
 		case <-resizeTicker.C:
 			newWidth, newHeight, _, _ := terminal.Size()

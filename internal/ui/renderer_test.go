@@ -35,6 +35,37 @@ func TestRendererUsesIRISOverlayWithoutRedrawingPrompt(t *testing.T) {
 	}
 }
 
+func TestRendererWaveUsesOneRowAndPreservesInputCursor(t *testing.T) {
+	var output bytes.Buffer
+	renderer := New(&output, config.Default())
+	renderer.DrawWave(40, 3)
+
+	rendered := output.String()
+	if strings.ContainsAny(rendered, "\r\n") {
+		t.Fatalf("wave must stay on one terminal row: %q", rendered)
+	}
+	for _, want := range []string{
+		ansiSaveCursor,
+		"\x1b[1;1H",
+		ansiEraseLine,
+		ansiRestoreCursor,
+		ansiShowCursor,
+		"38;2;162;119;255",
+		"38;2;97;255;202",
+	} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("wave output is missing %q: %q", want, rendered)
+		}
+	}
+	glyphCount := 0
+	for _, glyph := range "▁▂▃▄▅▆▇█" {
+		glyphCount += strings.Count(rendered, string(glyph))
+	}
+	if glyphCount != 39 {
+		t.Fatalf("wave glyph count = %d, want 39: %q", glyphCount, rendered)
+	}
+}
+
 func TestRendererShowsCounterOnlyForScrollableResults(t *testing.T) {
 	var output bytes.Buffer
 	renderer := New(&output, config.Default())
