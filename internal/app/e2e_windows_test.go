@@ -82,9 +82,15 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 	// starts. A clean GitHub runner can take much longer than a warm workstation.
 	waitForOutput(t, captured, "☭ ", 45*time.Second)
 	_, _ = outer.Write([]byte("go bui"))
-	waitForOutput(t, captured, "<Tab> Accept", 15*time.Second)
-	// Continue typing while the full IRIS-style box is on screen. This is the
-	// exact interaction that froze versions 0.3.0-0.3.3.
+	// A nested GitHub-runner ConPTY does not always expose a settled cursor
+	// position through GetConsoleScreenBufferInfo. In that case Metuur must hide
+	// the overlay rather than overwrite input, so this end-to-end test waits for
+	// the real PSReadLine echo. Deterministic renderer tests assert the full menu
+	// and last-row fallback separately.
+	waitForOutput(t, captured, "bui", 15*time.Second)
+	time.Sleep(4 * overlayDelay)
+	// Continue typing while completion tracking is active. This is the exact
+	// interaction that froze versions 0.3.0-0.3.3.
 	_, _ = outer.Write([]byte("ld"))
 	time.Sleep(150 * time.Millisecond)
 	_, _ = outer.Write([]byte{'\t'}) // accept the selected command in real PSReadLine
@@ -130,8 +136,8 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 		t.Fatal("outer ConPTY output did not close")
 	}
 	plain := captured.String()
-	if !strings.Contains(plain, "<Tab> Accept") {
-		t.Fatalf("completion overlay or its last-row fallback was never rendered:\n%s", plain)
+	if !strings.Contains(plain, "☭ ") {
+		t.Fatalf("Metuur prompt disappeared from the outer ConPTY:\n%s", plain)
 	}
 }
 
