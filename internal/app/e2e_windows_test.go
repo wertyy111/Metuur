@@ -82,6 +82,10 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 	// Backspace at the start of an empty command must be absorbed by Metuur. It
 	// must never move the child cursor into the protected animated header row.
 	_, _ = outer.Write([]byte{0x7f, 0x7f, 0x7f})
+	// PSReadLine's ClearScreen redraw must keep the prompt visible on row 2.
+	promptCount := strings.Count(captured.String(), "☭ ")
+	_, _ = outer.Write([]byte{0x0c}) // Ctrl+L
+	waitForOccurrences(t, captured, "☭ ", promptCount+1, 15*time.Second)
 	_, _ = outer.Write([]byte(`go run .\ma`))
 	// A nested GitHub-runner ConPTY does not always expose a settled cursor
 	// position through GetConsoleScreenBufferInfo. In that case Metuur must hide
@@ -181,6 +185,18 @@ func waitForOutputAfter(t *testing.T, output *e2eBuffer, first, second string, t
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %q after %q; output:\n%s", second, first, output.String())
+}
+
+func waitForOccurrences(t *testing.T, output *e2eBuffer, needle string, count int, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if strings.Count(output.String(), needle) >= count {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %d occurrences of %q; output:\n%s", count, needle, output.String())
 }
 
 type e2eBuffer struct {

@@ -79,7 +79,6 @@ func Run(cfg config.Config, version string) error {
 	childOutputEvents := make(chan struct{}, 1)
 	childScreen := &notifyingWriter{writer: screen, events: childOutputEvents}
 	renderer := ui.New(screen, cfg)
-	defer renderer.ReleaseHeader()
 	type promptEvent struct {
 		state        shell.PromptState
 		acknowledged chan struct{}
@@ -311,10 +310,9 @@ func Run(cfg config.Config, version string) error {
 			recompute()
 			terminalWidth, terminalHeight, cursorColumn, cursorRow := terminal.Size()
 			lastWidth, lastHeight = terminalWidth, terminalHeight
-			renderer.ReserveHeader(terminalHeight, cursorColumn, cursorRow)
 			waveActive = true
 			waveFrame = 0
-			renderer.DrawWave(terminalWidth, waveFrame)
+			renderer.DrawWave(terminalWidth, cursorColumn, cursorRow, waveFrame)
 			close(event.acknowledged)
 
 		case completion, ok := <-aiResults:
@@ -349,6 +347,11 @@ func Run(cfg config.Config, version string) error {
 			}
 
 		case result := <-inputEvents:
+			if len(result.data) > 0 {
+				// Stop the decorative writer before PSReadLine starts repainting the
+				// editable buffer. This keeps their cursor updates independent.
+				waveActive = false
+			}
 			if result.err != nil {
 				renderer.Reset()
 				return result.err
@@ -542,17 +545,17 @@ func Run(cfg config.Config, version string) error {
 		case <-waveTicker.C:
 			if waveActive && ready && !executing {
 				waveFrame++
-				renderer.DrawWave(lastWidth, waveFrame)
+				terminalWidth, _, cursorColumn, cursorRow := terminal.Size()
+				renderer.DrawWave(terminalWidth, cursorColumn, cursorRow, waveFrame)
 			}
 
 		case <-resizeTicker.C:
-			newWidth, newHeight, cursorColumn, cursorRow := terminal.Size()
+			newWidth, newHeight, _, _ := terminal.Size()
 			if newWidth != lastWidth || newHeight != lastHeight {
 				renderer.ClearOverlay()
 				if err := session.Resize(newWidth, newHeight); err != nil {
 					return err
 				}
-				renderer.ReserveHeader(newHeight, cursorColumn, cursorRow)
 				lastWidth, lastHeight = newWidth, newHeight
 				scheduleRender()
 			}

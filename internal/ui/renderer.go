@@ -70,35 +70,17 @@ func New(out io.Writer, cfg config.Config) *Renderer {
 	return &Renderer{out: out, cfg: cfg}
 }
 
-// ReserveHeader makes row 1 a fixed status row. The terminal scroll region
-// starts at row 2, and the editable cursor is restored below that boundary.
-// This prevents Backspace, wrapping, and normal child output from reaching the
-// animated header.
-func (r *Renderer) ReserveHeader(terminalHeight, cursorColumn, cursorRow int) {
-	if terminalHeight < 2 {
-		return
-	}
-	row := min(max(cursorRow+1, 2), terminalHeight)
-	column := max(cursorColumn+1, 1)
-	sequence := fmt.Sprintf("%s\x1b[?6l\x1b[2;%dr\x1b[%d;%dH%s%s",
-		ansiAutoWrapOff, terminalHeight, row, column, ansiAutoWrapOn, ansiShowCursor)
-	_, _ = io.WriteString(r.out, sequence)
-}
-
-// ReleaseHeader restores the terminal's normal full-height scroll region.
-func (r *Renderer) ReleaseHeader() {
-	_, _ = io.WriteString(r.out, "\x1b[?6l\x1b[r"+ansiAutoWrapOn+ansiShowCursor)
-}
-
 // DrawWave paints an animated header into the first terminal row without
-// emitting a newline or changing the editable PowerShell cursor. One column is
-// deliberately left unused so terminals with auto-wrap enabled cannot scroll.
-func (r *Renderer) DrawWave(terminalWidth, frame int) {
+// emitting a newline or using the terminal's shared saved-cursor slot. The
+// cursor is restored explicitly and clamped below the protected header row.
+func (r *Renderer) DrawWave(terminalWidth, cursorColumn, cursorRow, frame int) {
 	width := min(max(terminalWidth-1, 0), 36)
 	if width == 0 {
 		return
 	}
-	startColumn := max((terminalWidth-width)/2, 0)
+	startColumn := min(2, max(terminalWidth-width-1, 0))
+	restoreRow := max(cursorRow+1, 2)
+	restoreColumn := max(cursorColumn+1, 1)
 
 	var line strings.Builder
 	for column := 0; column < width; column++ {
@@ -109,13 +91,12 @@ func (r *Renderer) DrawWave(terminalWidth, frame int) {
 
 	var output strings.Builder
 	output.WriteString(ansiAutoWrapOff)
-	output.WriteString(ansiSaveCursor)
 	output.WriteString("\x1b[1;1H")
 	output.WriteString(ansiEraseLine)
 	output.WriteString(cursorForward(startColumn))
 	output.WriteString(line.String())
 	output.WriteString(ansiReset)
-	output.WriteString(ansiRestoreCursor)
+	output.WriteString(fmt.Sprintf("\x1b[%d;%dH", restoreRow, restoreColumn))
 	output.WriteString(ansiAutoWrapOn)
 	output.WriteString(ansiShowCursor)
 	_, _ = io.WriteString(r.out, output.String())

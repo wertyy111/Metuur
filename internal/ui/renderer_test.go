@@ -46,18 +46,17 @@ func TestRendererUsesIRISOverlayWithoutRedrawingPrompt(t *testing.T) {
 func TestRendererWaveUsesOneRowAndPreservesInputCursor(t *testing.T) {
 	var output bytes.Buffer
 	renderer := New(&output, config.Default())
-	renderer.DrawWave(40, 3)
+	renderer.DrawWave(40, 0, 0, 3)
 
 	rendered := output.String()
 	if strings.ContainsAny(rendered, "\r\n") {
 		t.Fatalf("wave must stay on one terminal row: %q", rendered)
 	}
 	for _, want := range []string{
-		ansiSaveCursor,
 		"\x1b[1;1H",
 		ansiEraseLine,
 		"\x1b[2C",
-		ansiRestoreCursor,
+		"\x1b[2;1H",
 		ansiShowCursor,
 		"38;2;203;166;247",
 		"38;2;166;227;161",
@@ -66,26 +65,15 @@ func TestRendererWaveUsesOneRowAndPreservesInputCursor(t *testing.T) {
 			t.Fatalf("wave output is missing %q: %q", want, rendered)
 		}
 	}
+	if strings.Contains(rendered, ansiSaveCursor) || strings.Contains(rendered, ansiRestoreCursor) {
+		t.Fatalf("wave must not overwrite PSReadLine's saved cursor: %q", rendered)
+	}
 	glyphCount := 0
 	for _, glyph := range "▁▂▃▄▅▆▇█" {
 		glyphCount += strings.Count(rendered, string(glyph))
 	}
 	if glyphCount != 36 {
 		t.Fatalf("wave glyph count = %d, want 36: %q", glyphCount, rendered)
-	}
-}
-
-func TestRendererReservesFirstRowForHeader(t *testing.T) {
-	var output bytes.Buffer
-	renderer := New(&output, config.Default())
-	renderer.ReserveHeader(30, 0, 0)
-
-	rendered := output.String()
-	if !strings.Contains(rendered, "\x1b[2;30r") || !strings.Contains(rendered, "\x1b[2;1H") {
-		t.Fatalf("header scroll region was not reserved: %q", rendered)
-	}
-	if strings.ContainsAny(rendered, "\r\n") {
-		t.Fatalf("reserving the header must not scroll the terminal: %q", rendered)
 	}
 }
 
