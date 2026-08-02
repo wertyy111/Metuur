@@ -40,7 +40,8 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 	if err := os.MkdirAll(workspace, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(workspace, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0o644); err != nil {
+	program := "package main\n\nimport \"fmt\"\n\nfunc main() { fmt.Println(\"__METUUR_GO_DONE__\") }\n"
+	if err := os.WriteFile(filepath.Join(workspace, "main.go"), []byte(program), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -93,24 +94,26 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 	// sleep; a cold runner can spend longer discovering its first workspace.
 	waitForOutput(t, captured, "main.go", 15*time.Second)
 	_, _ = outer.Write([]byte{'\r'})
-	waitForOutputCount(t, captured, "☭ ", 2, 15*time.Second)
+	waitForOutput(t, captured, "__METUUR_GO_DONE__", 15*time.Second)
+	waitForOutputAfter(t, captured, "__METUUR_GO_DONE__", "☭ ", 15*time.Second)
 	_, _ = outer.Write([]byte("$v=Read-Host 'VALUE'; Write-Output ('GOT:'+$v)\r"))
-	waitForOutput(t, captured, "VALUE", 15*time.Second)
+	waitForOutput(t, captured, "VALUE:", 15*time.Second)
 	_, _ = outer.Write([]byte("hello\r"))
 	waitForOutput(t, captured, "GOT:hello", 15*time.Second)
 
-	// Escape only hides the overlay. It must not reach PSReadLine's RevertLine
-	// binding and erase text the user already typed.
-	_, _ = outer.Write([]byte("Write-Output '__METUUR_ESCAPE_OK__'"))
-	_, _ = outer.Write([]byte{0x1b})
-	time.Sleep(2 * escapeSequenceDelay)
-	_, _ = outer.Write([]byte{'\r'})
-	waitForOutput(t, captured, "__METUUR_ESCAPE_OK__", 15*time.Second)
-
-	// GitHub's nested runner ConPTY can expand control bytes such as 0x15 into
-	// printable "^U" before Metuur receives them. Exercise the real chord path
-	// on normal/local ConPTY hosts; decoder unit tests remain platform-stable.
+	// GitHub's nested runner ConPTY can consume Escape and expand control bytes
+	// such as 0x15 into printable "^U" before Metuur receives them. Exercise the
+	// real chord path on normal/local ConPTY hosts; decoder unit tests remain
+	// platform-stable.
 	if !strings.EqualFold(os.Getenv("GITHUB_ACTIONS"), "true") {
+		// Escape only hides the overlay. It must not reach PSReadLine's RevertLine
+		// binding and erase text the user already typed.
+		_, _ = outer.Write([]byte("Write-Output '__METUUR_ESCAPE_OK__'"))
+		_, _ = outer.Write([]byte{0x1b})
+		time.Sleep(2 * escapeSequenceDelay)
+		_, _ = outer.Write([]byte{'\r'})
+		waitForOutput(t, captured, "__METUUR_ESCAPE_OK__", 15*time.Second)
+
 		// Metuur translates these chords into portable navigation/editing events
 		// so its mirrored buffer cannot diverge from Windows PowerShell or pwsh.
 		_, _ = outer.Write([]byte("Write-Output '__METUUR_CTRL_LEFT__'"))
@@ -156,16 +159,19 @@ func waitForOutput(t *testing.T, output *e2eBuffer, needle string, timeout time.
 	t.Fatalf("timed out waiting for %q; output:\n%s", needle, output.String())
 }
 
-func waitForOutputCount(t *testing.T, output *e2eBuffer, needle string, count int, timeout time.Duration) {
+func waitForOutputAfter(t *testing.T, output *e2eBuffer, first, second string, timeout time.Duration) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if strings.Count(output.String(), needle) >= count {
-			return
+		value := output.String()
+		if index := strings.LastIndex(value, first); index >= 0 {
+			if strings.Contains(value[index+len(first):], second) {
+				return
+			}
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatalf("timed out waiting for %d occurrences of %q; output:\n%s", count, needle, output.String())
+	t.Fatalf("timed out waiting for %q after %q; output:\n%s", second, first, output.String())
 }
 
 type e2eBuffer struct {
