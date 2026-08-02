@@ -91,6 +91,7 @@ func (r *Renderer) Draw(
 	output.WriteString(r.clearSequence())
 
 	line := string(buffer)
+	inputFitsSingleRow := line == ""
 	// Some VS Code/PSReadLine combinations leave the editable text painted with
 	// an invisible terminal colour after an overlay update. Repaint only the
 	// known input span (never the PowerShell prompt), then restore the real
@@ -100,7 +101,8 @@ func (r *Renderer) Draw(
 		prefixWidth := displayWidth(string(buffer[:cursor]))
 		lineWidth := displayWidth(line)
 		lineStart := cursorColumn - prefixWidth
-		if lineStart >= 0 && lineStart+lineWidth < terminalWidth {
+		inputFitsSingleRow = lineStart >= 0 && lineStart+lineWidth < terminalWidth
+		if inputFitsSingleRow {
 			output.WriteString(ansiSaveCursor)
 			output.WriteString(cursorBackward(prefixWidth))
 			output.WriteString(fg(irisPalette.Text))
@@ -109,10 +111,28 @@ func (r *Renderer) Draw(
 			output.WriteString(ansiRestoreCursor)
 		}
 	}
+	// Rows below a wrapped PSReadLine buffer contain the rest of the editable
+	// command, not free overlay space. Leave that buffer entirely to PowerShell.
+	if !inputFitsSingleRow {
+		output.WriteString(ansiShowCursor)
+		_, _ = io.WriteString(r.out, output.String())
+		return
+	}
 
+	freeRows := terminalHeight - cursorRow - 1
+	compactFallback := menuVisible && len(suggestions) > 0 && freeRows < 3
 	ghost := ""
 	if r.cfg.UI.GhostText {
 		ghost = ghostText(line, cursor == len(buffer), suggestions, selected)
+	}
+	if compactFallback && cursor == len(buffer) {
+		if selected < 0 || selected >= len(suggestions) {
+			selected = 0
+		}
+		if ghost == "" {
+			ghost = "  " + suggestions[selected].Insert
+		}
+		ghost += "  <Tab> Accept"
 	}
 	if ghost != "" {
 		available := terminalWidth - cursorColumn
@@ -127,7 +147,7 @@ func (r *Renderer) Draw(
 		r.ghostWidth = displayWidth(ghost)
 	}
 
-	if !menuVisible || len(suggestions) == 0 {
+	if !menuVisible || len(suggestions) == 0 || compactFallback {
 		output.WriteString(ansiShowCursor)
 		_, _ = io.WriteString(r.out, output.String())
 		return
@@ -139,12 +159,6 @@ func (r *Renderer) Draw(
 	// Never create rows with CRLF: that makes VS Code scroll the terminal and
 	// pushes the editable PowerShell line out of view. Render only into rows
 	// that already exist below the cursor and shrink the result window to fit.
-	freeRows := terminalHeight - cursorRow - 1
-	if freeRows < 3 {
-		output.WriteString(ansiShowCursor)
-		_, _ = io.WriteString(r.out, output.String())
-		return
-	}
 	visibleItems := min(maxVisibleItems, freeRows-2)
 	start, end := suggestionWindow(len(suggestions), selected, visibleItems)
 	boxWidth := responsiveWidth(terminalWidth, r.cfg.UI.MaxWidth)

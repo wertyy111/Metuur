@@ -116,6 +116,65 @@ func TestRendererShrinksWithoutScrollingInShortTerminal(t *testing.T) {
 	}
 }
 
+func TestRendererUsesInlineFallbackOnLastTerminalRow(t *testing.T) {
+	var output bytes.Buffer
+	renderer := New(&output, config.Default())
+	renderer.Draw(
+		[]rune("go"), 2,
+		[]suggest.Suggestion{{Insert: "go run .", Kind: "run"}},
+		0, suggest.ModeSpec, true,
+		80, 8, 5, 7,
+	)
+	rendered := output.String()
+	plain := stripANSI(rendered)
+	if !strings.Contains(plain, " run .") || !strings.Contains(plain, "<Tab> Accept") {
+		t.Fatalf("last-row fallback is not actionable: %q", plain)
+	}
+	if strings.Contains(rendered, ansiEraseLine) || strings.Contains(rendered, "\r\n") {
+		t.Fatalf("last-row fallback modified terminal rows: %q", rendered)
+	}
+}
+
+func TestRendererNeverOverwritesWrappedInputTail(t *testing.T) {
+	var output bytes.Buffer
+	renderer := New(&output, config.Default())
+	line := strings.Repeat("x", 50)
+	renderer.Draw(
+		[]rune(line), 20,
+		[]suggest.Suggestion{{Insert: line + " suffix", Kind: "run"}},
+		0, suggest.ModeSpec, true,
+		30, 10, 5, 3,
+	)
+	rendered := output.String()
+	if strings.Contains(rendered, ansiEraseLine) || strings.Contains(rendered, "<Tab>") ||
+		strings.Contains(stripANSI(rendered), "suffix") {
+		t.Fatalf("wrapped input tail was touched by the overlay: %q", rendered)
+	}
+	if !strings.Contains(rendered, ansiShowCursor) {
+		t.Fatalf("wrapped input cursor was not restored: %q", rendered)
+	}
+}
+
+func TestRendererNeverOverwritesMultilinePaste(t *testing.T) {
+	var output bytes.Buffer
+	renderer := New(&output, config.Default())
+	line := "go test\nnext"
+	renderer.Draw(
+		[]rune(line), len([]rune(line)),
+		[]suggest.Suggestion{{Insert: "go test ./...", Kind: "test"}},
+		0, suggest.ModeSpec, true,
+		80, 20, 4, 3,
+	)
+	rendered := output.String()
+	if strings.Contains(rendered, ansiEraseLine) || strings.Contains(rendered, "<Tab>") ||
+		strings.Contains(stripANSI(rendered), "go test ./...") {
+		t.Fatalf("multiline paste was touched by the overlay: %q", rendered)
+	}
+	if !strings.Contains(rendered, ansiShowCursor) {
+		t.Fatalf("multiline paste cursor was not restored: %q", rendered)
+	}
+}
+
 func TestResponsiveWidthNeverExceedsTerminal(t *testing.T) {
 	for _, test := range []struct{ terminal, want int }{{120, 76}, {60, 60}, {30, 30}} {
 		if got := responsiveWidth(test.terminal, 76); got != test.want {

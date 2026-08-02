@@ -75,6 +75,8 @@ func Run(cfg config.Config, version string) error {
 	}
 
 	screen := &lockedWriter{writer: os.Stdout}
+	childOutputEvents := make(chan struct{}, 1)
+	childScreen := &notifyingWriter{writer: screen, events: childOutputEvents}
 	renderer := ui.New(screen, cfg)
 	type promptEvent struct {
 		state        shell.PromptState
@@ -85,7 +87,7 @@ func Run(cfg config.Config, version string) error {
 	defer close(lifecycleDone)
 	streamDone := make(chan error, 1)
 	go func() {
-		streamDone <- session.Stream(screen, func(state shell.PromptState) {
+		streamDone <- session.Stream(childScreen, func(state shell.PromptState) {
 			event := promptEvent{state: state, acknowledged: make(chan struct{})}
 			select {
 			case promptEvents <- event:
@@ -322,6 +324,15 @@ func Run(cfg config.Config, version string) error {
 				}
 				selected = 0
 				recompute()
+				scheduleRender()
+			}
+
+		case <-childOutputEvents:
+			// PSReadLine echoes input asynchronously. On a cold ConPTY runner its
+			// cursor update can arrive after the input-side render timer. Debounce
+			// again from visible child output so Draw observes the settled cursor
+			// and gets another chance to publish the full overlay.
+			if ready && !executing && len(buffer) > 0 {
 				scheduleRender()
 			}
 
@@ -647,6 +658,22 @@ func (w *lockedWriter) Write(data []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.writer.Write(data)
+}
+
+type notifyingWriter struct {
+	writer io.Writer
+	events chan<- struct{}
+}
+
+func (w *notifyingWriter) Write(data []byte) (int, error) {
+	written, err := w.writer.Write(data)
+	if written > 0 {
+		select {
+		case w.events <- struct{}{}:
+		default:
+		}
+	}
+	return written, err
 }
 
 func mergeAISuggestion(items []suggest.Suggestion, ai suggest.Suggestion) []suggest.Suggestion {

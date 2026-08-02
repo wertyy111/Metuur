@@ -1,11 +1,30 @@
 package app
 
 import (
+	"bytes"
 	"reflect"
 	"testing"
 
 	"github.com/wertyy111/metuur/internal/suggest"
 )
+
+func TestNotifyingWriterSignalsChildOutputWithoutBlocking(t *testing.T) {
+	var output bytes.Buffer
+	events := make(chan struct{}, 1)
+	writer := &notifyingWriter{writer: &output, events: events}
+
+	for _, chunk := range []string{"go ", "bui"} {
+		if _, err := writer.Write([]byte(chunk)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if output.String() != "go bui" {
+		t.Fatalf("child output = %q", output.String())
+	}
+	if len(events) != 1 {
+		t.Fatalf("coalesced output events = %d, want 1", len(events))
+	}
+}
 
 func TestAISuggestionIsRankedAndDeduplicated(t *testing.T) {
 	ai := suggest.Suggestion{Insert: "go test ./...", Kind: "ai", Score: 550}
