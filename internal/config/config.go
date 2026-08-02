@@ -8,12 +8,11 @@ import (
 	"path/filepath"
 )
 
-type Theme struct {
-	Accent   string `json:"accent"`
-	Logo     string `json:"logo"`
-	Command  string `json:"command"`
-	Muted    string `json:"muted"`
-	Selected string `json:"selected"`
+type UIConfig struct {
+	Style     string `json:"style"`
+	MaxWidth  int    `json:"maxWidth"`
+	GhostText bool   `json:"ghostText"`
+	NerdFonts bool   `json:"nerdFonts"`
 }
 
 type AIConfig struct {
@@ -28,26 +27,28 @@ type AIConfig struct {
 }
 
 type Config struct {
-	Prompt           string   `json:"prompt"`
-	Shell            string   `json:"shell"`
-	LocalAIEnabled   bool     `json:"localAIEnabled"`
-	MaxSuggestions   int      `json:"maxSuggestions"`
-	MaxHistory       int      `json:"maxHistory"`
-	ShowDescriptions bool     `json:"showDescriptions"`
-	ShowHiddenFiles  bool     `json:"showHiddenFiles"`
-	AI               AIConfig `json:"ai"`
-	Theme            Theme    `json:"theme"`
+	Shell           string   `json:"shell"`
+	LocalAIEnabled  bool     `json:"localAIEnabled"`
+	MaxSuggestions  int      `json:"maxSuggestions"`
+	MaxHistory      int      `json:"maxHistory"`
+	ShowHiddenFiles bool     `json:"showHiddenFiles"`
+	UI              UIConfig `json:"ui"`
+	AI              AIConfig `json:"ai"`
 }
 
 func Default() Config {
 	return Config{
-		Prompt:           "λ ",
-		Shell:            "auto",
-		LocalAIEnabled:   true,
-		MaxSuggestions:   5,
-		MaxHistory:       5000,
-		ShowDescriptions: true,
-		ShowHiddenFiles:  false,
+		Shell:           "auto",
+		LocalAIEnabled:  true,
+		MaxSuggestions:  100,
+		MaxHistory:      5000,
+		ShowHiddenFiles: false,
+		UI: UIConfig{
+			Style:     "modern",
+			MaxWidth:  76,
+			GhostText: true,
+			NerdFonts: true,
+		},
 		AI: AIConfig{
 			Enabled:    true,
 			Provider:   "portable",
@@ -55,13 +56,6 @@ func Default() Config {
 			Model:      "qwen2.5-coder:0.5b",
 			DebounceMS: 500,
 			TimeoutMS:  5000,
-		},
-		Theme: Theme{
-			Accent:   "141",
-			Logo:     "213",
-			Command:  "121",
-			Muted:    "248",
-			Selected: "60",
 		},
 	}
 }
@@ -178,35 +172,26 @@ func Save(cfg Config, overwrite bool) error {
 
 func (c *Config) normalize() {
 	defaults := Default()
-	if c.Prompt == "" {
-		c.Prompt = defaults.Prompt
-	}
 	if c.Shell == "" {
 		c.Shell = defaults.Shell
 	}
 	if c.MaxSuggestions < 1 {
 		c.MaxSuggestions = defaults.MaxSuggestions
 	}
-	if c.MaxSuggestions > 20 {
-		c.MaxSuggestions = 20
+	if c.MaxSuggestions > 1000 {
+		c.MaxSuggestions = 1000
 	}
 	if c.MaxHistory < 100 {
 		c.MaxHistory = defaults.MaxHistory
 	}
-	if c.Theme.Accent == "" {
-		c.Theme.Accent = defaults.Theme.Accent
+	if c.UI.Style == "" {
+		c.UI.Style = defaults.UI.Style
 	}
-	if c.Theme.Logo == "" {
-		c.Theme.Logo = defaults.Theme.Logo
+	if c.UI.MaxWidth < 40 {
+		c.UI.MaxWidth = defaults.UI.MaxWidth
 	}
-	if c.Theme.Command == "" {
-		c.Theme.Command = defaults.Theme.Command
-	}
-	if c.Theme.Muted == "" {
-		c.Theme.Muted = defaults.Theme.Muted
-	}
-	if c.Theme.Selected == "" {
-		c.Theme.Selected = defaults.Theme.Selected
+	if c.UI.MaxWidth > 240 {
+		c.UI.MaxWidth = 240
 	}
 	if c.AI.Provider == "" {
 		c.AI.Provider = defaults.AI.Provider

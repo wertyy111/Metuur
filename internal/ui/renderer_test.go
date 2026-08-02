@@ -9,61 +9,72 @@ import (
 	"github.com/wertyy111/metuur/internal/suggest"
 )
 
-func TestRendererReservesRowsBelowPrompt(t *testing.T) {
+func TestRendererUsesIRISOverlayWithoutRedrawingPrompt(t *testing.T) {
 	var output bytes.Buffer
 	renderer := New(&output, config.Default())
 	items := []suggest.Suggestion{
-		{Label: "go", Insert: "go ", Description: "Go"},
-		{Label: "gofmt", Insert: "gofmt ", Description: "format"},
+		{Insert: "go build ./...", Description: "compile packages", Kind: "build"},
+		{Insert: "go run .\\main.go", Description: "run file", Kind: "run"},
 	}
-
-	renderer.Redraw([]rune("g"), 1, items, 0, suggest.ModeSpec, true)
+	renderer.Draw([]rune("go bu"), 5, items, 0, suggest.ModeSpec, true, 120, 12)
 	rendered := output.String()
-	// Two items plus the top and bottom borders require four reserved rows.
+	plain := stripANSI(rendered)
+	if strings.Contains(plain, "λ ") || strings.Contains(plain, "PS ") {
+		t.Fatalf("overlay must not redraw the real PowerShell prompt: %q", plain)
+	}
+	for _, want := range []string{"╭", "▶", "go build ./...", "<Tab> Accept", "<Ctrl+R> Mode", "╯"} {
+		if !strings.Contains(plain, want) {
+			t.Fatalf("IRIS element %q is missing: %q", want, plain)
+		}
+	}
+	if !strings.Contains(rendered, "38;2;162;119;255") || !strings.Contains(rendered, "48;2;61;55;94") {
+		t.Fatalf("IRIS border/selection palette is missing: %q", rendered)
+	}
 	if !strings.Contains(rendered, "\r\n\r\n\r\n\r\n\x1b[4A") {
-		t.Fatalf("menu rows were not reserved before drawing: %q", rendered)
-	}
-
-	output.Reset()
-	renderer.Redraw([]rune("go"), 2, items, 0, suggest.ModeSpec, true)
-	if strings.Contains(output.String(), "\r\n") {
-		t.Fatalf("redraw reserved rows again and would scroll the terminal: %q", output.String())
+		t.Fatalf("two rows plus borders must reserve four terminal lines: %q", rendered)
 	}
 }
 
-func TestRendererUsesScrollableSuggestionWindow(t *testing.T) {
+func TestRendererShowsCounterOnlyForScrollableResults(t *testing.T) {
 	var output bytes.Buffer
-	cfg := config.Default()
-	cfg.MaxSuggestions = 3
-	renderer := New(&output, cfg)
-	items := []suggest.Suggestion{
-		{Label: "build", Insert: "go build "},
-		{Label: "clean", Insert: "go clean "},
-		{Label: "run", Insert: "go run "},
-		{Label: "test", Insert: "go test "},
-		{Label: "vet", Insert: "go vet "},
+	renderer := New(&output, config.Default())
+	items := make([]suggest.Suggestion, 8)
+	for index := range items {
+		items[index] = suggest.Suggestion{Insert: "go item " + string(rune('a'+index)), Description: "item"}
 	}
-
-	renderer.Redraw([]rune("go"), 2, items, 3, suggest.ModeSpec, true)
-	rendered := output.String()
-	if !strings.Contains(rendered, "4/5") || !strings.Contains(rendered, "test") ||
-		!strings.Contains(rendered, "vet") || strings.Contains(rendered, "build") {
-		t.Fatalf("suggestion window did not follow selection: %q", rendered)
-	}
-	if !strings.Contains(rendered, "METUUR") || !strings.Contains(rendered, "4/5") {
-		t.Fatalf("top border should contain the Metuur logo and counter: %q", rendered)
+	renderer.Draw([]rune("go"), 2, items, 6, suggest.ModeSpec, true, 100, 4)
+	plain := stripANSI(output.String())
+	if !strings.Contains(plain, "7/8") || strings.Contains(plain, "go item a") || !strings.Contains(plain, "go item g") {
+		t.Fatalf("scroll counter/window differs from IRIS: %q", plain)
 	}
 }
 
-func TestRendererUsesConfiguredPalette(t *testing.T) {
+func TestRendererShowsGhostTextWhenMenuIsHidden(t *testing.T) {
 	var output bytes.Buffer
-	cfg := config.Default()
-	renderer := New(&output, cfg)
-	renderer.Redraw([]rune("go"), 2, []suggest.Suggestion{{Label: "go run .", Insert: "go run .", Kind: "ai"}}, 0, suggest.ModeSpec, true)
-	rendered := output.String()
-	for _, color := range []string{cfg.Theme.Accent, cfg.Theme.Logo, cfg.Theme.Command, cfg.Theme.Selected} {
-		if !strings.Contains(rendered, "38;5;"+color+"m") && !strings.Contains(rendered, "48;5;"+color+"m") {
-			t.Fatalf("configured color %s is absent from rendered UI: %q", color, rendered)
+	renderer := New(&output, config.Default())
+	renderer.Draw(
+		[]rune("gofm"),
+		4,
+		[]suggest.Suggestion{{Insert: "gofmt -w .", Kind: "format"}},
+		0,
+		suggest.ModeSpec,
+		false,
+		100,
+		10,
+	)
+	plain := stripANSI(output.String())
+	if !strings.Contains(plain, "t -w .") {
+		t.Fatalf("inline ghost completion is missing: %q", plain)
+	}
+	if strings.Contains(plain, "╭") {
+		t.Fatalf("boxed menu must stay hidden: %q", plain)
+	}
+}
+
+func TestResponsiveWidthNeverExceedsTerminal(t *testing.T) {
+	for _, test := range []struct{ terminal, want int }{{120, 76}, {60, 60}, {30, 30}} {
+		if got := responsiveWidth(test.terminal, 76); got != test.want {
+			t.Fatalf("responsiveWidth(%d) = %d, want %d", test.terminal, got, test.want)
 		}
 	}
 }

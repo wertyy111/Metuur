@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestOldConfigReceivesAIAndPaletteDefaults(t *testing.T) {
+func TestOldConfigReceivesAIAndIRISUIDefaults(t *testing.T) {
 	t.Setenv("LOCALAPPDATA", t.TempDir())
 	if err := os.MkdirAll(filepath.Dir(Path()), 0o755); err != nil {
 		t.Fatal(err)
@@ -18,11 +18,9 @@ func TestOldConfigReceivesAIAndPaletteDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.AI.Enabled || cfg.AI.Provider != "portable" || cfg.AI.Model != "qwen2.5-coder:0.5b" || cfg.Theme.Logo == "" || cfg.Theme.Command == "" {
+	if !cfg.AI.Enabled || cfg.AI.Provider != "portable" || cfg.AI.Model != "qwen2.5-coder:0.5b" ||
+		cfg.UI.Style != "modern" || cfg.UI.MaxWidth != 76 || !cfg.UI.GhostText || !cfg.UI.NerdFonts {
 		t.Fatalf("defaults were not migrated: %#v", cfg)
-	}
-	if cfg.Theme.Accent != "135" {
-		t.Fatalf("existing custom color should be preserved: %#v", cfg.Theme)
 	}
 }
 

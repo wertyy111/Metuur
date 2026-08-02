@@ -10,11 +10,13 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 type vscodeActiveFile struct {
-	Path      string `json:"path"`
-	Workspace string `json:"workspace"`
+	Path      string    `json:"path"`
+	Workspace string    `json:"workspace"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 func activeGoFile(cwd string) (string, bool) {
@@ -63,6 +65,10 @@ func activeFileBridgeState() (vscodeActiveFile, bool) {
 	}
 	var state vscodeActiveFile
 	if json.Unmarshal(data, &state) != nil || strings.TrimSpace(state.Path) == "" {
+		return vscodeActiveFile{}, false
+	}
+	age := time.Since(state.UpdatedAt)
+	if state.UpdatedAt.IsZero() || age > 20*time.Second || age < -time.Minute {
 		return vscodeActiveFile{}, false
 	}
 	return state, true
