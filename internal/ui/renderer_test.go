@@ -58,8 +58,8 @@ func TestRendererWaveUsesOneRowAndPreservesInputCursor(t *testing.T) {
 		"\x1b[2C",
 		"\x1b[2;1H",
 		ansiShowCursor,
-		"38;2;203;166;247",
-		"38;2;166;227;161",
+		"38;2;69;71;90",
+		"38;2;166;173;200",
 	} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("wave output is missing %q: %q", want, rendered)
@@ -69,11 +69,17 @@ func TestRendererWaveUsesOneRowAndPreservesInputCursor(t *testing.T) {
 		t.Fatalf("wave must not overwrite PSReadLine's saved cursor: %q", rendered)
 	}
 	glyphCount := 0
-	for _, glyph := range "▁▂▃▄▅▆▇█" {
+	for _, glyph := range "▁▂▃▄▅▆" {
 		glyphCount += strings.Count(rendered, string(glyph))
 	}
-	if glyphCount != 36 {
-		t.Fatalf("wave glyph count = %d, want 36: %q", glyphCount, rendered)
+	if glyphCount != 24 {
+		t.Fatalf("wave glyph count = %d, want 24: %q", glyphCount, rendered)
+	}
+	if !strings.Contains(rendered, "METUUR  ") {
+		t.Fatalf("subtle wave label is missing: %q", rendered)
+	}
+	if strings.Contains(rendered, "38;2;203;166;247") || strings.Contains(rendered, "38;2;166;227;161") {
+		t.Fatalf("wave reused a bright interface accent: %q", rendered)
 	}
 }
 

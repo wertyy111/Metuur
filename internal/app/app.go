@@ -9,11 +9,11 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/mattn/go-runewidth"
 	"github.com/wertyy111/metuur/internal/config"
 	winconsole "github.com/wertyy111/metuur/internal/console"
 	"github.com/wertyy111/metuur/internal/history"
@@ -26,7 +26,7 @@ import (
 const (
 	overlayDelay        = 20 * time.Millisecond
 	escapeSequenceDelay = 35 * time.Millisecond
-	waveFrameDelay      = 90 * time.Millisecond
+	waveFrameDelay      = 120 * time.Millisecond
 )
 
 func Run(cfg config.Config, version string) error {
@@ -149,8 +149,8 @@ func Run(cfg config.Config, version string) error {
 		waveActive         bool
 		waveFrame          int
 		shellPaintPending  bool
+		requiredChildPaint uint64
 		renderRetries      int
-		inputStartColumn   int
 		lastCommand        string
 		commandCWD         = cwd
 		lastExitCode       int
@@ -188,21 +188,16 @@ func Run(cfg config.Config, version string) error {
 			return
 		}
 		if shellPaintPending {
-			return
-		}
-		terminalWidth, terminalHeight, cursorColumn, cursorRow := terminal.Size()
-		line := string(buffer)
-		lineWidth := runewidth.StringWidth(line)
-		if !strings.ContainsAny(line, "\r\n") && inputStartColumn+lineWidth < terminalWidth {
-			expectedColumn := inputStartColumn + runewidth.StringWidth(string(buffer[:cursor]))
-			if cursorColumn != expectedColumn {
+			if childScreen.Generation() < requiredChildPaint {
 				if renderRetries > 0 {
 					renderRetries--
 					scheduleRender()
 				}
 				return
 			}
+			shellPaintPending = false
 		}
+		terminalWidth, terminalHeight, cursorColumn, cursorRow := terminal.Size()
 		renderRetries = 0
 		menuVisible := suggestionsEnabled && !hiddenUntilInput && len(suggestions) > 0
 		renderer.Draw(
@@ -238,7 +233,8 @@ func Run(cfg config.Config, version string) error {
 	}
 	markShellPaint := func() {
 		shellPaintPending = true
-		renderRetries = 4
+		requiredChildPaint = childScreen.Generation() + 1
+		renderRetries = 20
 	}
 	writeShell := func(data []byte) (int, error) {
 		markShellPaint()
@@ -340,9 +336,7 @@ func Run(cfg config.Config, version string) error {
 			recompute()
 			terminalWidth, terminalHeight, cursorColumn, cursorRow := terminal.Size()
 			lastWidth, lastHeight = terminalWidth, terminalHeight
-			inputStartColumn = cursorColumn + 2 // visible width of "☭ "
-			shellPaintPending = true
-			renderRetries = 4
+			markShellPaint()
 			waveActive = true
 			waveFrame = 0
 			renderer.DrawWave(terminalWidth, cursorColumn, cursorRow, waveFrame)
@@ -376,7 +370,9 @@ func Run(cfg config.Config, version string) error {
 			// again from visible child output so Draw observes the settled cursor
 			// and gets another chance to publish the full overlay.
 			if ready && !executing {
-				shellPaintPending = false
+				if childScreen.Generation() >= requiredChildPaint {
+					shellPaintPending = false
+				}
 				if len(buffer) > 0 {
 					scheduleRender()
 				}
@@ -727,17 +723,23 @@ func (w *lockedWriter) Write(data []byte) (int, error) {
 type notifyingWriter struct {
 	writer io.Writer
 	events chan<- struct{}
+	paint  atomic.Uint64
 }
 
 func (w *notifyingWriter) Write(data []byte) (int, error) {
 	written, err := w.writer.Write(data)
 	if written > 0 {
+		w.paint.Add(1)
 		select {
 		case w.events <- struct{}{}:
 		default:
 		}
 	}
 	return written, err
+}
+
+func (w *notifyingWriter) Generation() uint64 {
+	return w.paint.Load()
 }
 
 func mergeAISuggestion(items []suggest.Suggestion, ai suggest.Suggestion) []suggest.Suggestion {

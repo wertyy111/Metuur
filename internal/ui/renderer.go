@@ -47,17 +47,17 @@ var irisPalette = struct {
 }
 
 var wavePalette = [...]string{
-	"#cba6f7",
-	"#b4befe",
-	"#89b4fa",
-	"#74c7ec",
-	"#89dceb",
-	"#94e2d5",
-	"#a6e3a1",
-	"#94e2d5",
+	"#45475a",
+	"#585b70",
+	"#6c7086",
+	"#7f849c",
+	"#9399b2",
+	"#a6adc8",
+	"#9399b2",
+	"#7f849c",
 }
 
-var waveGlyphs = [...]rune{'▁', '▂', '▃', '▄', '▅', '▆', '▇', '█', '▇', '▆', '▅', '▄', '▃', '▂'}
+var waveGlyphs = [...]rune{'▁', '▂', '▃', '▄', '▅', '▆', '▅', '▄', '▃', '▂'}
 
 type Renderer struct {
 	out        io.Writer
@@ -74,16 +74,25 @@ func New(out io.Writer, cfg config.Config) *Renderer {
 // emitting a newline or using the terminal's shared saved-cursor slot. The
 // cursor is restored explicitly and clamped below the protected header row.
 func (r *Renderer) DrawWave(terminalWidth, cursorColumn, cursorRow, frame int) {
-	width := min(max(terminalWidth-1, 0), 36)
-	if width == 0 {
+	startColumn := min(2, max(terminalWidth-2, 0))
+	available := max(terminalWidth-startColumn-1, 0)
+	label := "METUUR  "
+	if available < displayWidth(label)+8 {
+		label = ""
+	}
+	waveWidth := min(max(available-displayWidth(label), 0), 24)
+	if waveWidth == 0 {
 		return
 	}
-	startColumn := min(2, max(terminalWidth-width-1, 0))
 	restoreRow := max(cursorRow+1, 2)
 	restoreColumn := max(cursorColumn+1, 1)
 
 	var line strings.Builder
-	for column := 0; column < width; column++ {
+	if label != "" {
+		line.WriteString(fg("#6c7086"))
+		line.WriteString(label)
+	}
+	for column := 0; column < waveWidth; column++ {
 		phase := column + frame
 		line.WriteString(fg(wavePalette[phase%len(wavePalette)]))
 		line.WriteRune(waveGlyphs[phase%len(waveGlyphs)])
