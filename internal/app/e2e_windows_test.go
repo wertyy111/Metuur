@@ -70,8 +70,9 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 		close(copyDone)
 	}()
 
-	// PowerShell needs a moment to load PSReadLine and the prompt hook.
-	time.Sleep(750 * time.Millisecond)
+	// Wait for the real first prompt instead of guessing how quickly PowerShell
+	// starts. A clean GitHub runner can take much longer than a warm workstation.
+	waitForOutput(t, captured, "workspace> ", 30*time.Second)
 	_, _ = outer.Write([]byte("go bui"))
 	waitForOutput(t, captured, "<Tab> Accept", 15*time.Second)
 	// Continue typing while the full IRIS-style box is on screen. This is the
@@ -94,8 +95,8 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 	_, _ = outer.Write([]byte{'\r'})
 	waitForOutput(t, captured, "__METUUR_ESCAPE_OK__", 15*time.Second)
 
-	// The bootstrap normalizes these chords across Windows PowerShell 5.1 and
-	// pwsh 7 so Metuur's mirrored buffer cannot diverge from PSReadLine.
+	// Metuur translates these chords into portable navigation/editing events so
+	// its mirrored buffer cannot diverge from Windows PowerShell or pwsh.
 	_, _ = outer.Write([]byte("Write-Output '__METUUR_CTRL_LEFT__'"))
 	_, _ = outer.Write([]byte{0x01}) // Ctrl+A / BeginningOfLine
 	_, _ = outer.Write([]byte("$null=1; "))
