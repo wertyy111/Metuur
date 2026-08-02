@@ -138,24 +138,16 @@ func (r *Renderer) Draw(
 
 	line := string(buffer)
 	inputFitsSingleRow := line == ""
-	// Some VS Code/PSReadLine combinations leave the editable text painted with
-	// an invisible terminal colour after an overlay update. Repaint only the
-	// known input span (never the PowerShell prompt), then restore the real
-	// cursor. This is visual only; PowerShell still owns the actual line.
+	// PowerShell/PSReadLine is the only owner of the editable command. Metuur
+	// must never repaint buffer here: doing so races PSReadLine's asynchronous
+	// echo and leaves duplicated or "stuck" characters when cursor reports lag.
+	// Geometry is inspected only to avoid drawing over wrapped input.
 	if cursor >= 0 && cursor <= len(buffer) && line != "" &&
 		!strings.ContainsAny(line, "\r\n") {
 		prefixWidth := displayWidth(string(buffer[:cursor]))
 		lineWidth := displayWidth(line)
 		lineStart := cursorColumn - prefixWidth
 		inputFitsSingleRow = lineStart >= 0 && lineStart+lineWidth < terminalWidth
-		if inputFitsSingleRow {
-			output.WriteString(ansiSaveCursor)
-			output.WriteString(cursorBackward(prefixWidth))
-			output.WriteString(fg(irisPalette.Text))
-			output.WriteString(line)
-			output.WriteString(ansiReset)
-			output.WriteString(ansiRestoreCursor)
-		}
 	}
 	// Rows below a wrapped PSReadLine buffer contain the rest of the editable
 	// command, not free overlay space. Leave that buffer entirely to PowerShell.
@@ -579,11 +571,4 @@ func cursorForward(columns int) string {
 		return ""
 	}
 	return fmt.Sprintf("\x1b[%dC", columns)
-}
-
-func cursorBackward(columns int) string {
-	if columns <= 0 {
-		return ""
-	}
-	return fmt.Sprintf("\x1b[%dD", columns)
 }

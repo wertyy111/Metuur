@@ -115,28 +115,32 @@ func TestRendererShowsGhostTextWhenMenuIsHidden(t *testing.T) {
 	}
 }
 
-func TestRendererKeepsInputAndCursorVisible(t *testing.T) {
-	var output bytes.Buffer
-	renderer := New(&output, config.Default())
-	renderer.Draw(
-		[]rune("go"),
-		2,
-		[]suggest.Suggestion{{Insert: "go run .", Kind: "run"}},
-		0,
-		suggest.ModeSpec,
-		false,
-		100,
-		30,
-		12,
-		2,
-	)
-	rendered := output.String()
-	if !strings.Contains(rendered, "\x1b[2D") ||
-		!strings.Contains(rendered, fg(irisPalette.Text)+"go") {
-		t.Fatalf("editable input was not repainted visibly: %q", rendered)
-	}
-	if !strings.Contains(rendered, ansiShowCursor) {
-		t.Fatalf("renderer did not restore the visible cursor: %q", rendered)
+func TestRendererNeverRepaintsEditableInput(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		input  string
+		cursor int
+		column int
+	}{
+		{name: "single rune", input: "g", cursor: 1, column: 3},
+		{name: "unicode", input: "go тест", cursor: 7, column: 9},
+		{name: "middle edit", input: "go build", cursor: 2, column: 4},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var output bytes.Buffer
+			renderer := New(&output, config.Default())
+			renderer.Draw(
+				[]rune(test.input), test.cursor, nil, 0, suggest.ModeSpec, false,
+				100, 30, test.column, 2,
+			)
+			rendered := output.String()
+			if strings.Contains(stripANSI(rendered), test.input) || strings.Contains(rendered, fg(irisPalette.Text)) {
+				t.Fatalf("renderer repainted PSReadLine-owned input: %q", rendered)
+			}
+			if !strings.Contains(rendered, ansiShowCursor) {
+				t.Fatalf("renderer did not restore the visible cursor: %q", rendered)
+			}
+		})
 	}
 }
 

@@ -86,7 +86,15 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 	promptCount := strings.Count(captured.String(), "☭ ")
 	_, _ = outer.Write([]byte{0x0c}) // Ctrl+L
 	waitForOccurrences(t, captured, "☭ ", promptCount+1, 15*time.Second)
-	_, _ = outer.Write([]byte(`go run .\ma`))
+	singleRuneStart := len(captured.String())
+	_, _ = outer.Write([]byte("g"))
+	waitForOutputAfter(t, captured, "☭ ", "g", 15*time.Second)
+	time.Sleep(4 * overlayDelay)
+	singleRuneOutput := captured.String()[singleRuneStart:]
+	if strings.Contains(singleRuneOutput, "\x1b[38;2;166;227;161mg\x1b[0m") {
+		t.Fatalf("Metuur duplicated the PSReadLine-owned g rune:\n%s", singleRuneOutput)
+	}
+	_, _ = outer.Write([]byte(`o run .\ma`))
 	// A nested GitHub-runner ConPTY does not always expose a settled cursor
 	// position through GetConsoleScreenBufferInfo. In that case Metuur must hide
 	// the overlay rather than overwrite input, so this end-to-end test waits for
