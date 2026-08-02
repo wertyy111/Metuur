@@ -121,6 +121,18 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 	// real chord path on normal/local ConPTY hosts; decoder unit tests remain
 	// platform-stable.
 	if !strings.EqualFold(os.Getenv("GITHUB_ACTIONS"), "true") {
+		// A burst of Backspace events must not race the asynchronous PSReadLine
+		// cursor update, and the suggestion menu must return for the next query.
+		waitForOutputAfter(t, captured, "GOT:hello", "☭ ", 15*time.Second)
+		firstMenuStart := len(captured.String())
+		_, _ = outer.Write([]byte("gofmt"))
+		waitForOutputSince(t, captured, firstMenuStart, "<Tab> Accept", 15*time.Second)
+		_, _ = outer.Write([]byte{0x7f, 0x7f, 0x7f, 0x7f, 0x7f})
+		secondMenuStart := len(captured.String())
+		_, _ = outer.Write([]byte("go"))
+		waitForOutputSince(t, captured, secondMenuStart, "<Tab> Accept", 15*time.Second)
+		_, _ = outer.Write([]byte{0x7f, 0x7f})
+
 		// Escape only hides the overlay. It must not reach PSReadLine's RevertLine
 		// binding and erase text the user already typed.
 		_, _ = outer.Write([]byte("Write-Output '__METUUR_ESCAPE_OK__'"))
@@ -205,6 +217,19 @@ func waitForOccurrences(t *testing.T, output *e2eBuffer, needle string, count in
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %d occurrences of %q; output:\n%s", count, needle, output.String())
+}
+
+func waitForOutputSince(t *testing.T, output *e2eBuffer, start int, needle string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		value := output.String()
+		if start <= len(value) && strings.Contains(value[start:], needle) {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %q after byte %d; output:\n%s", needle, start, output.String())
 }
 
 type e2eBuffer struct {

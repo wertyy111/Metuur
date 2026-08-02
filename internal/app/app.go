@@ -13,6 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/wertyy111/metuur/internal/config"
 	winconsole "github.com/wertyy111/metuur/internal/console"
 	"github.com/wertyy111/metuur/internal/history"
@@ -147,6 +148,9 @@ func Run(cfg config.Config, version string) error {
 		executing          = true
 		waveActive         bool
 		waveFrame          int
+		shellPaintPending  bool
+		renderRetries      int
+		inputStartColumn   int
 		lastCommand        string
 		commandCWD         = cwd
 		lastExitCode       int
@@ -178,11 +182,28 @@ func Run(cfg config.Config, version string) error {
 		userNavigated = false
 	}
 
+	var scheduleRender func()
 	redraw := func() {
 		if !ready || executing {
 			return
 		}
+		if shellPaintPending {
+			return
+		}
 		terminalWidth, terminalHeight, cursorColumn, cursorRow := terminal.Size()
+		line := string(buffer)
+		lineWidth := runewidth.StringWidth(line)
+		if !strings.ContainsAny(line, "\r\n") && inputStartColumn+lineWidth < terminalWidth {
+			expectedColumn := inputStartColumn + runewidth.StringWidth(string(buffer[:cursor]))
+			if cursorColumn != expectedColumn {
+				if renderRetries > 0 {
+					renderRetries--
+					scheduleRender()
+				}
+				return
+			}
+		}
+		renderRetries = 0
 		menuVisible := suggestionsEnabled && !hiddenUntilInput && len(suggestions) > 0
 		renderer.Draw(
 			buffer, cursor, suggestions, selected, mode, menuVisible,
@@ -192,7 +213,7 @@ func Run(cfg config.Config, version string) error {
 
 	var renderTimer *time.Timer
 	var renderTimerC <-chan time.Time
-	scheduleRender := func() {
+	scheduleRender = func() {
 		if renderTimer == nil {
 			renderTimer = time.NewTimer(overlayDelay)
 		} else {
@@ -214,6 +235,14 @@ func Run(cfg config.Config, version string) error {
 			}
 		}
 		renderTimerC = nil
+	}
+	markShellPaint := func() {
+		shellPaintPending = true
+		renderRetries = 4
+	}
+	writeShell := func(data []byte) (int, error) {
+		markShellPaint()
+		return session.Write(data)
 	}
 
 	scheduleAI := func() {
@@ -259,6 +288,7 @@ func Run(cfg config.Config, version string) error {
 			value += " "
 		}
 		renderer.ClearOverlay()
+		markShellPaint()
 		if err := replacePowerShellLine(session, buffer, value); err != nil {
 			return err
 		}
@@ -310,6 +340,9 @@ func Run(cfg config.Config, version string) error {
 			recompute()
 			terminalWidth, terminalHeight, cursorColumn, cursorRow := terminal.Size()
 			lastWidth, lastHeight = terminalWidth, terminalHeight
+			inputStartColumn = cursorColumn + 2 // visible width of "☭ "
+			shellPaintPending = true
+			renderRetries = 4
 			waveActive = true
 			waveFrame = 0
 			renderer.DrawWave(terminalWidth, cursorColumn, cursorRow, waveFrame)
@@ -342,8 +375,11 @@ func Run(cfg config.Config, version string) error {
 			// cursor update can arrive after the input-side render timer. Debounce
 			// again from visible child output so Draw observes the settled cursor
 			// and gets another chance to publish the full overlay.
-			if ready && !executing && len(buffer) > 0 {
-				scheduleRender()
+			if ready && !executing {
+				shellPaintPending = false
+				if len(buffer) > 0 {
+					scheduleRender()
+				}
 			}
 
 		case result := <-inputEvents:
@@ -399,7 +435,7 @@ func Run(cfg config.Config, version string) error {
 					buffer = insertRune(buffer, cursor, stroke.runeValue)
 					cursor++
 					resetSelection()
-					_, err = session.Write(stroke.raw)
+					_, err = writeShell(stroke.raw)
 
 				case strokeBackspace:
 					hiddenUntilInput = false
@@ -407,7 +443,7 @@ func Run(cfg config.Config, version string) error {
 						buffer = append(buffer[:cursor-1], buffer[cursor:]...)
 						cursor--
 						resetSelection()
-						_, err = session.Write(stroke.raw)
+						_, err = writeShell(stroke.raw)
 					}
 
 				case strokeDelete:
@@ -415,18 +451,18 @@ func Run(cfg config.Config, version string) error {
 						buffer = append(buffer[:cursor], buffer[cursor+1:]...)
 						resetSelection()
 					}
-					_, err = session.Write(stroke.raw)
+					_, err = writeShell(stroke.raw)
 
 				case strokeLeft:
 					if cursor > 0 {
 						cursor--
 					}
-					_, err = session.Write(stroke.raw)
+					_, err = writeShell(stroke.raw)
 
 				case strokeRight:
 					ghost := currentGhost(string(buffer), cursor == len(buffer), suggestions, selected)
 					if suggestionsEnabled && !hiddenUntilInput && ghost != "" {
-						_, err = session.Write([]byte(ghost))
+						_, err = writeShell([]byte(ghost))
 						buffer = append(buffer, []rune(ghost)...)
 						cursor = len(buffer)
 						resetSelection()
@@ -434,16 +470,16 @@ func Run(cfg config.Config, version string) error {
 						if cursor < len(buffer) {
 							cursor++
 						}
-						_, err = session.Write(stroke.raw)
+						_, err = writeShell(stroke.raw)
 					}
 
 				case strokeHome:
 					cursor = 0
-					_, err = session.Write(stroke.raw)
+					_, err = writeShell(stroke.raw)
 
 				case strokeEnd:
 					cursor = len(buffer)
-					_, err = session.Write(stroke.raw)
+					_, err = writeShell(stroke.raw)
 
 				case strokeUp, strokeDown:
 					if len(suggestions) == 0 && len(buffer) == 0 {
@@ -462,14 +498,14 @@ func Run(cfg config.Config, version string) error {
 							selected = (selected + 1) % len(suggestions)
 						}
 					} else {
-						_, err = session.Write(stroke.raw)
+						_, err = writeShell(stroke.raw)
 					}
 
 				case strokeTab:
 					if suggestionsEnabled && !hiddenUntilInput && selected >= 0 && selected < len(suggestions) {
 						err = replaceChildLine(suggestions[selected].Insert, mode == suggest.ModeSpec)
 					} else {
-						_, err = session.Write(stroke.raw)
+						_, err = writeShell(stroke.raw)
 					}
 
 				case strokeShiftTab:
@@ -509,6 +545,9 @@ func Run(cfg config.Config, version string) error {
 					_, err = session.Write([]byte{'\r'})
 
 				case strokeCtrl:
+					if stroke.control != 0x00 && stroke.control != 0x12 {
+						markShellPaint()
+					}
 					err = handleControl(stroke.control, session, &buffer, &cursor, &mode, &hiddenUntilInput, resetSelection, recompute)
 					if stroke.control == 0x12 { // Ctrl+R is Metuur mode, not PSReadLine history search.
 						userNavigated = false
@@ -519,14 +558,14 @@ func Run(cfg config.Config, version string) error {
 					hiddenUntilInput = false
 
 				case strokePasteStart, strokePasteEnd:
-					_, err = session.Write(stroke.raw)
+					_, err = writeShell(stroke.raw)
 
 				case strokeUnknown:
 					hiddenUntilInput = true
 					buffer = nil
 					cursor = 0
 					resetSelection()
-					_, err = session.Write(stroke.raw)
+					_, err = writeShell(stroke.raw)
 				}
 				if err != nil {
 					return err
