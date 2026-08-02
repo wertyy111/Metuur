@@ -19,7 +19,7 @@ func TestOldConfigReceivesAIAndIRISUIDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !cfg.AI.Enabled || cfg.AI.Provider != "portable" || cfg.AI.Model != "qwen2.5-coder:0.5b" ||
-		cfg.UI.Style != "modern" || cfg.UI.MaxWidth != 76 || !cfg.UI.GhostText || !cfg.UI.NerdFonts {
+		cfg.UI.Style != "modern" || cfg.UI.MaxWidth != 76 || !cfg.UI.GhostText || cfg.UI.NerdFonts {
 		t.Fatalf("defaults were not migrated: %#v", cfg)
 	}
 }

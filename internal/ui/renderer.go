@@ -25,6 +25,7 @@ const (
 	ansiAutoWrapOff   = "\x1b[?7l"
 	ansiAutoWrapOn    = "\x1b[?7h"
 	ansiReset         = "\x1b[0m"
+	ansiShowCursor    = "\x1b[?25h"
 )
 
 var irisPalette = struct {
@@ -45,11 +46,10 @@ var irisPalette = struct {
 }
 
 type Renderer struct {
-	out           io.Writer
-	cfg           config.Config
-	menuLines     int
-	reservedLines int
-	ghostWidth    int
+	out        io.Writer
+	cfg        config.Config
+	menuLines  int
+	ghostWidth int
 }
 
 func New(out io.Writer, cfg config.Config) *Renderer {
@@ -70,7 +70,6 @@ func (r *Renderer) ClearOverlay() {
 func (r *Renderer) Reset() {
 	r.ClearOverlay()
 	r.menuLines = 0
-	r.reservedLines = 0
 	r.ghostWidth = 0
 }
 
@@ -84,12 +83,33 @@ func (r *Renderer) Draw(
 	mode suggest.Mode,
 	menuVisible bool,
 	terminalWidth int,
+	terminalHeight int,
 	cursorColumn int,
+	cursorRow int,
 ) {
 	var output strings.Builder
 	output.WriteString(r.clearSequence())
 
 	line := string(buffer)
+	// Some VS Code/PSReadLine combinations leave the editable text painted with
+	// an invisible terminal colour after an overlay update. Repaint only the
+	// known input span (never the PowerShell prompt), then restore the real
+	// cursor. This is visual only; PowerShell still owns the actual line.
+	if cursor >= 0 && cursor <= len(buffer) && line != "" &&
+		!strings.ContainsAny(line, "\r\n") {
+		prefixWidth := displayWidth(string(buffer[:cursor]))
+		lineWidth := displayWidth(line)
+		lineStart := cursorColumn - prefixWidth
+		if lineStart >= 0 && lineStart+lineWidth < terminalWidth {
+			output.WriteString(ansiSaveCursor)
+			output.WriteString(cursorBackward(prefixWidth))
+			output.WriteString(fg(irisPalette.Text))
+			output.WriteString(line)
+			output.WriteString(ansiReset)
+			output.WriteString(ansiRestoreCursor)
+		}
+	}
+
 	ghost := ""
 	if r.cfg.UI.GhostText {
 		ghost = ghostText(line, cursor == len(buffer), suggestions, selected)
@@ -108,6 +128,7 @@ func (r *Renderer) Draw(
 	}
 
 	if !menuVisible || len(suggestions) == 0 {
+		output.WriteString(ansiShowCursor)
 		_, _ = io.WriteString(r.out, output.String())
 		return
 	}
@@ -115,23 +136,23 @@ func (r *Renderer) Draw(
 		selected = 0
 	}
 
-	start, end := suggestionWindow(len(suggestions), selected, maxVisibleItems)
+	// Never create rows with CRLF: that makes VS Code scroll the terminal and
+	// pushes the editable PowerShell line out of view. Render only into rows
+	// that already exist below the cursor and shrink the result window to fit.
+	freeRows := terminalHeight - cursorRow - 1
+	if freeRows < 3 {
+		output.WriteString(ansiShowCursor)
+		_, _ = io.WriteString(r.out, output.String())
+		return
+	}
+	visibleItems := min(maxVisibleItems, freeRows-2)
+	start, end := suggestionWindow(len(suggestions), selected, visibleItems)
 	boxWidth := responsiveWidth(terminalWidth, r.cfg.UI.MaxWidth)
 	targetColumn := cursorColumn
 	if targetColumn+boxWidth > terminalWidth {
 		targetColumn = max(terminalWidth-boxWidth, 0)
 	}
 	lines := r.menu(line, suggestions, selected, mode, start, end, boxWidth)
-	additional := len(lines) - r.reservedLines
-	if additional > 0 {
-		for range additional {
-			output.WriteString("\r\n")
-		}
-		output.WriteString(cursorUp(additional))
-		output.WriteByte('\r')
-		output.WriteString(cursorForward(cursorColumn))
-		r.reservedLines = len(lines)
-	}
 
 	output.WriteString(ansiAutoWrapOff)
 	output.WriteString(ansiSaveCursor)
@@ -145,6 +166,7 @@ func (r *Renderer) Draw(
 	}
 	output.WriteString(ansiRestoreCursor)
 	output.WriteString(ansiAutoWrapOn)
+	output.WriteString(ansiShowCursor)
 	r.menuLines = len(lines)
 	_, _ = io.WriteString(r.out, output.String())
 }
@@ -497,4 +519,11 @@ func cursorForward(columns int) string {
 		return ""
 	}
 	return fmt.Sprintf("\x1b[%dC", columns)
+}
+
+func cursorBackward(columns int) string {
+	if columns <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("\x1b[%dD", columns)
 }

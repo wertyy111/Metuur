@@ -8,7 +8,7 @@
     "style": "modern",
     "maxWidth": 76,
     "ghostText": true,
-    "nerdFonts": true
+    "nerdFonts": false
   },
   "ai": {
     "enabled": true,

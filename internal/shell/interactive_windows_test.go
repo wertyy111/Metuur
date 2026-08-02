@@ -58,6 +58,7 @@ func TestEncodedBootstrapContainsNoPlainPowerShellCommand(t *testing.T) {
 		"Import-Module PSReadLine",
 		"Set-PSReadLineOption -PredictionSource None",
 		"MetuurPrompt",
+		"☭ ",
 	} {
 		if !strings.Contains(script, binding) {
 			t.Fatalf("PowerShell compatibility binding %q is missing", binding)

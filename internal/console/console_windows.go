@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	blinkingBarCursor = "\x1b[5 q"
-	defaultCursor     = "\x1b[0 q"
+	blinkingBarCursor = "\x1b[?25h\x1b[5 q"
+	defaultCursor     = "\x1b[?25h\x1b[0 q"
 
 	enableProcessedInput       = 0x0001
 	enableLineInput            = 0x0002
@@ -114,19 +114,20 @@ func (c *Console) ensureRawMode() error {
 }
 
 // Size returns the visible terminal dimensions and current zero-based cursor
-// column. The overlay starts directly beneath the real PowerShell cursor.
-func (c *Console) Size() (width, height, cursorColumn int) {
+// position. The overlay uses the free rows below the real PowerShell cursor.
+func (c *Console) Size() (width, height, cursorColumn, cursorRow int) {
 	var info screenBufferInfo
 	result, _, _ := getScreenBufferInfoProc.Call(
 		uintptr(c.output),
 		uintptr(unsafe.Pointer(&info)),
 	)
 	if result == 0 {
-		return 80, 30, 0
+		return 80, 30, 0, 0
 	}
 	width = int(info.Window.Right-info.Window.Left) + 1
 	height = int(info.Window.Bottom-info.Window.Top) + 1
 	cursorColumn = int(info.CursorPosition.X - info.Window.Left)
+	cursorRow = int(info.CursorPosition.Y - info.Window.Top)
 	if width < 1 {
 		width = 80
 	}
@@ -136,7 +137,13 @@ func (c *Console) Size() (width, height, cursorColumn int) {
 	if cursorColumn < 0 {
 		cursorColumn = 0
 	}
-	return width, height, cursorColumn
+	if cursorRow < 0 {
+		cursorRow = 0
+	}
+	if cursorRow >= height {
+		cursorRow = height - 1
+	}
+	return width, height, cursorColumn, cursorRow
 }
 
 func (c *Console) Close() error {

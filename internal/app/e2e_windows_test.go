@@ -72,7 +72,7 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 
 	// Wait for the real first prompt instead of guessing how quickly PowerShell
 	// starts. A clean GitHub runner can take much longer than a warm workstation.
-	waitForOutput(t, captured, "workspace> ", 30*time.Second)
+	waitForOutput(t, captured, "☭ ", 30*time.Second)
 	_, _ = outer.Write([]byte("go bui"))
 	waitForOutput(t, captured, "<Tab> Accept", 15*time.Second)
 	// Continue typing while the full IRIS-style box is on screen. This is the

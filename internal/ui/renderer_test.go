@@ -16,7 +16,7 @@ func TestRendererUsesIRISOverlayWithoutRedrawingPrompt(t *testing.T) {
 		{Insert: "go build ./...", Description: "compile packages", Kind: "build"},
 		{Insert: "go run .\\main.go", Description: "run file", Kind: "run"},
 	}
-	renderer.Draw([]rune("go bu"), 5, items, 0, suggest.ModeSpec, true, 120, 12)
+	renderer.Draw([]rune("go bu"), 5, items, 0, suggest.ModeSpec, true, 120, 30, 12, 2)
 	rendered := output.String()
 	plain := stripANSI(rendered)
 	if strings.Contains(plain, "λ ") || strings.Contains(plain, "PS ") {
@@ -30,8 +30,8 @@ func TestRendererUsesIRISOverlayWithoutRedrawingPrompt(t *testing.T) {
 	if !strings.Contains(rendered, "38;2;162;119;255") || !strings.Contains(rendered, "48;2;61;55;94") {
 		t.Fatalf("IRIS border/selection palette is missing: %q", rendered)
 	}
-	if !strings.Contains(rendered, "\r\n\r\n\r\n\r\n\x1b[4A") {
-		t.Fatalf("two rows plus borders must reserve four terminal lines: %q", rendered)
+	if strings.Contains(rendered, "\r\n") {
+		t.Fatalf("overlay must not create rows or scroll the terminal: %q", rendered)
 	}
 }
 
@@ -42,7 +42,7 @@ func TestRendererShowsCounterOnlyForScrollableResults(t *testing.T) {
 	for index := range items {
 		items[index] = suggest.Suggestion{Insert: "go item " + string(rune('a'+index)), Description: "item"}
 	}
-	renderer.Draw([]rune("go"), 2, items, 6, suggest.ModeSpec, true, 100, 4)
+	renderer.Draw([]rune("go"), 2, items, 6, suggest.ModeSpec, true, 100, 30, 4, 2)
 	plain := stripANSI(output.String())
 	if !strings.Contains(plain, "7/8") || strings.Contains(plain, "go item a") || !strings.Contains(plain, "go item g") {
 		t.Fatalf("scroll counter/window differs from IRIS: %q", plain)
@@ -60,7 +60,9 @@ func TestRendererShowsGhostTextWhenMenuIsHidden(t *testing.T) {
 		suggest.ModeSpec,
 		false,
 		100,
+		30,
 		10,
+		2,
 	)
 	plain := stripANSI(output.String())
 	if !strings.Contains(plain, "t -w .") {
@@ -68,6 +70,49 @@ func TestRendererShowsGhostTextWhenMenuIsHidden(t *testing.T) {
 	}
 	if strings.Contains(plain, "╭") {
 		t.Fatalf("boxed menu must stay hidden: %q", plain)
+	}
+}
+
+func TestRendererKeepsInputAndCursorVisible(t *testing.T) {
+	var output bytes.Buffer
+	renderer := New(&output, config.Default())
+	renderer.Draw(
+		[]rune("go"),
+		2,
+		[]suggest.Suggestion{{Insert: "go run .", Kind: "run"}},
+		0,
+		suggest.ModeSpec,
+		false,
+		100,
+		30,
+		12,
+		2,
+	)
+	rendered := output.String()
+	if !strings.Contains(rendered, "\x1b[2D") ||
+		!strings.Contains(rendered, fg(irisPalette.Text)+"go") {
+		t.Fatalf("editable input was not repainted visibly: %q", rendered)
+	}
+	if !strings.Contains(rendered, ansiShowCursor) {
+		t.Fatalf("renderer did not restore the visible cursor: %q", rendered)
+	}
+}
+
+func TestRendererShrinksWithoutScrollingInShortTerminal(t *testing.T) {
+	var output bytes.Buffer
+	renderer := New(&output, config.Default())
+	items := make([]suggest.Suggestion, 8)
+	for index := range items {
+		items[index] = suggest.Suggestion{Insert: "go item " + string(rune('a'+index)), Description: "item"}
+	}
+	renderer.Draw([]rune("go"), 2, items, 0, suggest.ModeSpec, true, 80, 8, 5, 3)
+	rendered := output.String()
+	plain := stripANSI(rendered)
+	if strings.Contains(rendered, "\r\n") {
+		t.Fatalf("short overlay scrolled the terminal: %q", rendered)
+	}
+	if !strings.Contains(plain, "go item a") || strings.Contains(plain, "go item d") {
+		t.Fatalf("short overlay did not fit available rows: %q", plain)
 	}
 }
 

@@ -112,7 +112,6 @@ try {
   Import-Module PSReadLine -ErrorAction SilentlyContinue
   Set-PSReadLineOption -PredictionSource None -ErrorAction SilentlyContinue
 } catch {}
-$global:__MetuurOriginalPrompt = $function:prompt
 function global:prompt {
   try {
     $metuurPath = (Get-Location).ProviderPath
@@ -121,10 +120,7 @@ function global:prompt {
     $metuurExit = if ($null -eq $global:LASTEXITCODE) { 0 } else { [int]$global:LASTEXITCODE }
     [Console]::Write(([char]27) + "]633;P;MetuurPrompt;$metuurCwd;$metuurExit" + ([char]7))
   } catch {}
-  if ($null -ne $global:__MetuurOriginalPrompt) {
-    return (& $global:__MetuurOriginalPrompt)
-  }
-  return "PS $($executionContext.SessionState.Path.CurrentLocation)> "
+  return ([char]27) + "[38;2;97;255;202m☭ " + ([char]27) + "[0m"
 }`
 	runes := utf16.Encode([]rune(script))
 	data := make([]byte, len(runes)*2)

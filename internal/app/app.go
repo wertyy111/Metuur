@@ -39,7 +39,7 @@ func Run(cfg config.Config, version string) error {
 	if err != nil {
 		cwd = "."
 	}
-	width, height, _ := terminal.Size()
+	width, height, _, _ := terminal.Size()
 	session, err := shell.StartInteractive(cfg.Shell, cwd, width, height)
 	if err != nil {
 		return err
@@ -76,20 +76,28 @@ func Run(cfg config.Config, version string) error {
 
 	screen := &lockedWriter{writer: os.Stdout}
 	renderer := ui.New(screen, cfg)
-	promptEvents := make(chan shell.PromptState, 16)
+	type promptEvent struct {
+		state        shell.PromptState
+		acknowledged chan struct{}
+	}
+	promptEvents := make(chan promptEvent)
+	lifecycleDone := make(chan struct{})
+	defer close(lifecycleDone)
 	streamDone := make(chan error, 1)
 	go func() {
 		streamDone <- session.Stream(screen, func(state shell.PromptState) {
+			event := promptEvent{state: state, acknowledged: make(chan struct{})}
 			select {
-			case promptEvents <- state:
-			default:
-				// A prompt event is never allowed to stall ConPTY output. Keep the
-				// newest state if an unusually noisy profile emits many prompts.
-				select {
-				case <-promptEvents:
-				default:
-				}
-				promptEvents <- state
+			case promptEvents <- event:
+			case <-lifecycleDone:
+				return
+			}
+			// Do not expose the visible prompt until the app has switched from
+			// pass-through execution to editable-line tracking. Otherwise a fast
+			// keypress can be echoed by PowerShell but missed by Metuur's overlay.
+			select {
+			case <-event.acknowledged:
+			case <-lifecycleDone:
 			}
 		})
 	}()
@@ -169,9 +177,12 @@ func Run(cfg config.Config, version string) error {
 		if !ready || executing {
 			return
 		}
-		terminalWidth, _, cursorColumn := terminal.Size()
+		terminalWidth, terminalHeight, cursorColumn, cursorRow := terminal.Size()
 		menuVisible := suggestionsEnabled && !hiddenUntilInput && len(suggestions) > 0
-		renderer.Draw(buffer, cursor, suggestions, selected, mode, menuVisible, terminalWidth, cursorColumn)
+		renderer.Draw(
+			buffer, cursor, suggestions, selected, mode, menuVisible,
+			terminalWidth, terminalHeight, cursorColumn, cursorRow,
+		)
 	}
 
 	var renderTimer *time.Timer
@@ -264,7 +275,8 @@ func Run(cfg config.Config, version string) error {
 
 	for {
 		select {
-		case state := <-promptEvents:
+		case event := <-promptEvents:
+			state := event.state
 			renderer.Reset()
 			if executing && strings.TrimSpace(lastCommand) != "" {
 				store.Add(lastCommand)
@@ -289,6 +301,7 @@ func Run(cfg config.Config, version string) error {
 			hiddenUntilInput = false
 			resetSelection()
 			recompute()
+			close(event.acknowledged)
 
 		case completion, ok := <-aiResults:
 			if !ok {
@@ -501,7 +514,7 @@ func Run(cfg config.Config, version string) error {
 			redraw()
 
 		case <-resizeTicker.C:
-			newWidth, newHeight, _ := terminal.Size()
+			newWidth, newHeight, _, _ := terminal.Size()
 			if newWidth != lastWidth || newHeight != lastHeight {
 				renderer.ClearOverlay()
 				if err := session.Resize(newWidth, newHeight); err != nil {

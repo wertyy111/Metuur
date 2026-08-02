@@ -47,7 +47,7 @@ func Default() Config {
 			Style:     "modern",
 			MaxWidth:  76,
 			GhostText: true,
-			NerdFonts: true,
+			NerdFonts: false,
 		},
 		AI: AIConfig{
 			Enabled:    true,

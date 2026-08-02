@@ -76,6 +76,9 @@ go build -buildvcs=false -trimpath -o .\bin\metuur.exe .\cmd\metuur
 Копируйте только команды внутри блоков. Текст приглашения вроде
 `PS D:\папка>` вводить не нужно.
 
+В интерактивной строке Metuur используется prompt `☭ `. Это обычный Unicode,
+поэтому отдельный Nerd Font не требуется.
+
 Для установки в `%LOCALAPPDATA%\Programs\Metuur` и добавления `metuur` в PATH:
 
 ```powershell
