@@ -40,9 +40,6 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 	if err := os.MkdirAll(workspace, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(workspace, "go.mod"), []byte("module example.com/e2e\n\ngo 1.25\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.WriteFile(filepath.Join(workspace, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -81,20 +78,20 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 	// Wait for the real first prompt instead of guessing how quickly PowerShell
 	// starts. A clean GitHub runner can take much longer than a warm workstation.
 	waitForOutput(t, captured, "☭ ", 45*time.Second)
-	_, _ = outer.Write([]byte("go bui"))
+	_, _ = outer.Write([]byte(`go run .\ma`))
 	// A nested GitHub-runner ConPTY does not always expose a settled cursor
 	// position through GetConsoleScreenBufferInfo. In that case Metuur must hide
 	// the overlay rather than overwrite input, so this end-to-end test waits for
 	// the real PSReadLine echo. Deterministic renderer tests assert the full menu
 	// and last-row fallback separately.
-	waitForOutput(t, captured, "bui", 15*time.Second)
+	waitForOutput(t, captured, "ma", 15*time.Second)
 	time.Sleep(4 * overlayDelay)
 	// Continue typing while completion tracking is active. This is the exact
 	// interaction that froze versions 0.3.0-0.3.3.
-	_, _ = outer.Write([]byte("ld"))
-	time.Sleep(150 * time.Millisecond)
 	_, _ = outer.Write([]byte{'\t'}) // accept the selected command in real PSReadLine
-	time.Sleep(100 * time.Millisecond)
+	// Synchronize on the accepted active-file target instead of an arbitrary
+	// sleep; a cold runner can spend longer discovering its first workspace.
+	waitForOutput(t, captured, "main.go", 15*time.Second)
 	_, _ = outer.Write([]byte{0x15}) // Ctrl+U / RevertLine
 	_, _ = outer.Write([]byte("$v=Read-Host 'VALUE'; Write-Output ('GOT:'+$v)\r"))
 	waitForOutput(t, captured, "VALUE", 15*time.Second)
