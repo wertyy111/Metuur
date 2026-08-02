@@ -144,6 +144,7 @@ func Run(cfg config.Config, version string) error {
 		hiddenUntilInput   bool
 		ready              bool
 		executing          = true
+		initialPrompt      = true
 		lastCommand        string
 		commandCWD         = cwd
 		lastExitCode       int
@@ -303,6 +304,16 @@ func Run(cfg config.Config, version string) error {
 			hiddenUntilInput = false
 			resetSelection()
 			recompute()
+			if initialPrompt {
+				// VS Code task terminals reserve the first visual row for their
+				// "Executing task" banner. PowerShell starts at cursor home, so its
+				// first prompt otherwise lands behind that banner and the user types
+				// into an invisible row. Move only the initial prompt below it.
+				if _, writeErr := screen.Write([]byte("\r\n")); writeErr != nil {
+					return writeErr
+				}
+				initialPrompt = false
+			}
 			close(event.acknowledged)
 
 		case completion, ok := <-aiResults:

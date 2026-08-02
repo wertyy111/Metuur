@@ -145,6 +145,11 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 	if !strings.Contains(plain, "☭ ") {
 		t.Fatalf("Metuur prompt disappeared from the outer ConPTY:\n%s", plain)
 	}
+	promptSequence := "\x1b[38;2;97;255;202m☭ "
+	promptIndex := strings.Index(plain, promptSequence)
+	if promptIndex < 2 || plain[promptIndex-2:promptIndex] != "\r\n" {
+		t.Fatalf("first prompt was not placed below the task banner:\n%s", plain)
+	}
 }
 
 func waitForOutput(t *testing.T, output *e2eBuffer, needle string, timeout time.Duration) {

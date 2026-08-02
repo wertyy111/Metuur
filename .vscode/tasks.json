@@ -11,10 +11,12 @@
         "runOn": "folderOpen"
       },
       "presentation": {
+        "echo": false,
         "reveal": "always",
         "focus": false,
         "panel": "dedicated",
-        "clear": true
+        "clear": true,
+        "showReuseMessage": false
       },
       "problemMatcher": []
     },
