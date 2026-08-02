@@ -58,6 +58,8 @@ func TestEncodedBootstrapContainsNoPlainPowerShellCommand(t *testing.T) {
 		"Import-Module PSReadLine",
 		"Set-PSReadLineOption -PredictionSource None",
 		"MetuurPrompt",
+		"[2;${metuurHeight}r",
+		"[${metuurRow};${metuurColumn}H",
 		"☭ ",
 	} {
 		if !strings.Contains(script, binding) {

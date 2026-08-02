@@ -31,29 +31,30 @@ const (
 var irisPalette = struct {
 	Border, Accent, Muted, Text, TextSelected string
 	Match, Description, DescriptionSelected   string
-	SelectedBackground, Ghost                 string
+	SelectedBackground, Ghost, Footer         string
 }{
-	Border:              "#a277ff",
-	Accent:              "#61ffca",
-	Muted:               "#6d6a7f",
-	Text:                "#edecee",
-	TextSelected:        "#ffffff",
-	Match:               "#61ffca",
-	Description:         "#9692a8",
-	DescriptionSelected: "#edecee",
-	SelectedBackground:  "#3d375e",
-	Ghost:               "#4b4a4c",
+	Border:              "#cba6f7",
+	Accent:              "#89b4fa",
+	Muted:               "#6c7086",
+	Text:                "#a6e3a1",
+	TextSelected:        "#f5e0dc",
+	Match:               "#a6e3a1",
+	Description:         "#6c7086",
+	DescriptionSelected: "#6c7086",
+	SelectedBackground:  "#313244",
+	Ghost:               "#6c7086",
+	Footer:              "#89b4fa",
 }
 
 var wavePalette = [...]string{
-	"#a277ff",
-	"#9b82ff",
-	"#8f9cff",
-	"#7bbbea",
-	"#6ddbd8",
-	"#61ffca",
-	"#6ddbd8",
-	"#7bbbea",
+	"#cba6f7",
+	"#b4befe",
+	"#89b4fa",
+	"#74c7ec",
+	"#89dceb",
+	"#94e2d5",
+	"#a6e3a1",
+	"#94e2d5",
 }
 
 var waveGlyphs = [...]rune{'▁', '▂', '▃', '▄', '▅', '▆', '▇', '█', '▇', '▆', '▅', '▄', '▃', '▂'}
@@ -69,14 +70,35 @@ func New(out io.Writer, cfg config.Config) *Renderer {
 	return &Renderer{out: out, cfg: cfg}
 }
 
+// ReserveHeader makes row 1 a fixed status row. The terminal scroll region
+// starts at row 2, and the editable cursor is restored below that boundary.
+// This prevents Backspace, wrapping, and normal child output from reaching the
+// animated header.
+func (r *Renderer) ReserveHeader(terminalHeight, cursorColumn, cursorRow int) {
+	if terminalHeight < 2 {
+		return
+	}
+	row := min(max(cursorRow+1, 2), terminalHeight)
+	column := max(cursorColumn+1, 1)
+	sequence := fmt.Sprintf("%s\x1b[?6l\x1b[2;%dr\x1b[%d;%dH%s%s",
+		ansiAutoWrapOff, terminalHeight, row, column, ansiAutoWrapOn, ansiShowCursor)
+	_, _ = io.WriteString(r.out, sequence)
+}
+
+// ReleaseHeader restores the terminal's normal full-height scroll region.
+func (r *Renderer) ReleaseHeader() {
+	_, _ = io.WriteString(r.out, "\x1b[?6l\x1b[r"+ansiAutoWrapOn+ansiShowCursor)
+}
+
 // DrawWave paints an animated header into the first terminal row without
 // emitting a newline or changing the editable PowerShell cursor. One column is
 // deliberately left unused so terminals with auto-wrap enabled cannot scroll.
 func (r *Renderer) DrawWave(terminalWidth, frame int) {
-	width := max(terminalWidth-1, 0)
+	width := min(max(terminalWidth-1, 0), 36)
 	if width == 0 {
 		return
 	}
+	startColumn := max((terminalWidth-width)/2, 0)
 
 	var line strings.Builder
 	for column := 0; column < width; column++ {
@@ -90,6 +112,7 @@ func (r *Renderer) DrawWave(terminalWidth, frame int) {
 	output.WriteString(ansiSaveCursor)
 	output.WriteString("\x1b[1;1H")
 	output.WriteString(ansiEraseLine)
+	output.WriteString(cursorForward(startColumn))
 	output.WriteString(line.String())
 	output.WriteString(ansiReset)
 	output.WriteString(ansiRestoreCursor)
@@ -358,9 +381,9 @@ func (r *Renderer) menu(
 
 	footer := ""
 	if !isClassic {
-		footer = fg(irisPalette.Border) + " <Tab> Accept • <Ctrl+R> Mode " + ansiReset
+		footer = fg(irisPalette.Footer) + " <Tab> Accept • <Ctrl+R> Mode " + ansiReset
 		if mode == suggest.ModeHistory {
-			footer = fg(irisPalette.Border) + " <Tab> Accept • <Ctrl+R> Spec " + ansiReset
+			footer = fg(irisPalette.Footer) + " <Tab> Accept • <Ctrl+R> Spec " + ansiReset
 		}
 	}
 	lines = append(lines, titledEdge("╰", "╯", inner, footer, max(inner-displayWidthANSI(footer)-2, 0)))

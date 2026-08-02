@@ -120,7 +120,17 @@ function global:prompt {
     $metuurExit = if ($null -eq $global:LASTEXITCODE) { 0 } else { [int]$global:LASTEXITCODE }
     [Console]::Write(([char]27) + "]633;P;MetuurPrompt;$metuurCwd;$metuurExit" + ([char]7))
   } catch {}
-  return ([char]27) + "[38;2;97;255;202m☭ " + ([char]27) + "[0m"
+  $metuurEsc = [char]27
+  $metuurHeight = [Math]::Max([Console]::WindowHeight, 2)
+  if ($global:MetuurHeaderInitialized) {
+    $metuurRow = [Math]::Max([Console]::CursorTop + 1, 2)
+  } else {
+    $global:MetuurHeaderInitialized = $true
+    $metuurRow = 2
+  }
+  $metuurColumn = [Math]::Max([Console]::CursorLeft + 1, 1)
+  $metuurHeaderGuard = $metuurEsc + "[?6l" + $metuurEsc + "[2;${metuurHeight}r" + $metuurEsc + "[${metuurRow};${metuurColumn}H"
+  return $metuurHeaderGuard + $metuurEsc + "[38;2;203;166;247m☭ " + $metuurEsc + "[0m"
 }`
 	runes := utf16.Encode([]rune(script))
 	data := make([]byte, len(runes)*2)

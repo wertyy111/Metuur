@@ -27,8 +27,16 @@ func TestRendererUsesIRISOverlayWithoutRedrawingPrompt(t *testing.T) {
 			t.Fatalf("IRIS element %q is missing: %q", want, plain)
 		}
 	}
-	if !strings.Contains(rendered, "38;2;162;119;255") || !strings.Contains(rendered, "48;2;61;55;94") {
-		t.Fatalf("IRIS border/selection palette is missing: %q", rendered)
+	for _, color := range []string{
+		"38;2;203;166;247", // lavender border
+		"48;2;49;50;68",    // selected background
+		"38;2;166;227;161", // command text
+		"38;2;108;112;134", // descriptions
+		"38;2;137;180;250", // footer hints
+	} {
+		if !strings.Contains(rendered, color) {
+			t.Fatalf("Catppuccin Mocha color %q is missing: %q", color, rendered)
+		}
 	}
 	if strings.Contains(rendered, "\r\n") {
 		t.Fatalf("overlay must not create rows or scroll the terminal: %q", rendered)
@@ -48,10 +56,11 @@ func TestRendererWaveUsesOneRowAndPreservesInputCursor(t *testing.T) {
 		ansiSaveCursor,
 		"\x1b[1;1H",
 		ansiEraseLine,
+		"\x1b[2C",
 		ansiRestoreCursor,
 		ansiShowCursor,
-		"38;2;162;119;255",
-		"38;2;97;255;202",
+		"38;2;203;166;247",
+		"38;2;166;227;161",
 	} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("wave output is missing %q: %q", want, rendered)
@@ -61,8 +70,22 @@ func TestRendererWaveUsesOneRowAndPreservesInputCursor(t *testing.T) {
 	for _, glyph := range "▁▂▃▄▅▆▇█" {
 		glyphCount += strings.Count(rendered, string(glyph))
 	}
-	if glyphCount != 39 {
-		t.Fatalf("wave glyph count = %d, want 39: %q", glyphCount, rendered)
+	if glyphCount != 36 {
+		t.Fatalf("wave glyph count = %d, want 36: %q", glyphCount, rendered)
+	}
+}
+
+func TestRendererReservesFirstRowForHeader(t *testing.T) {
+	var output bytes.Buffer
+	renderer := New(&output, config.Default())
+	renderer.ReserveHeader(30, 0, 0)
+
+	rendered := output.String()
+	if !strings.Contains(rendered, "\x1b[2;30r") || !strings.Contains(rendered, "\x1b[2;1H") {
+		t.Fatalf("header scroll region was not reserved: %q", rendered)
+	}
+	if strings.ContainsAny(rendered, "\r\n") {
+		t.Fatalf("reserving the header must not scroll the terminal: %q", rendered)
 	}
 }
 

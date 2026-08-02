@@ -79,6 +79,7 @@ func Run(cfg config.Config, version string) error {
 	childOutputEvents := make(chan struct{}, 1)
 	childScreen := &notifyingWriter{writer: screen, events: childOutputEvents}
 	renderer := ui.New(screen, cfg)
+	defer renderer.ReleaseHeader()
 	type promptEvent struct {
 		state        shell.PromptState
 		acknowledged chan struct{}
@@ -145,7 +146,6 @@ func Run(cfg config.Config, version string) error {
 		hiddenUntilInput   bool
 		ready              bool
 		executing          = true
-		initialPrompt      = true
 		waveActive         bool
 		waveFrame          int
 		lastCommand        string
@@ -309,19 +309,12 @@ func Run(cfg config.Config, version string) error {
 			hiddenUntilInput = false
 			resetSelection()
 			recompute()
-			if initialPrompt {
-				// VS Code task terminals reserve the first visual row for their
-				// "Executing task" banner. PowerShell starts at cursor home, so its
-				// first prompt otherwise lands behind that banner and the user types
-				// into an invisible row. Move only the initial prompt below it.
-				if _, writeErr := screen.Write([]byte("\r\n")); writeErr != nil {
-					return writeErr
-				}
-				waveActive = true
-				waveFrame = 0
-				renderer.DrawWave(lastWidth, waveFrame)
-				initialPrompt = false
-			}
+			terminalWidth, terminalHeight, cursorColumn, cursorRow := terminal.Size()
+			lastWidth, lastHeight = terminalWidth, terminalHeight
+			renderer.ReserveHeader(terminalHeight, cursorColumn, cursorRow)
+			waveActive = true
+			waveFrame = 0
+			renderer.DrawWave(terminalWidth, waveFrame)
 			close(event.acknowledged)
 
 		case completion, ok := <-aiResults:
@@ -411,8 +404,8 @@ func Run(cfg config.Config, version string) error {
 						buffer = append(buffer[:cursor-1], buffer[cursor:]...)
 						cursor--
 						resetSelection()
+						_, err = session.Write(stroke.raw)
 					}
-					_, err = session.Write(stroke.raw)
 
 				case strokeDelete:
 					if cursor < len(buffer) {
@@ -553,12 +546,13 @@ func Run(cfg config.Config, version string) error {
 			}
 
 		case <-resizeTicker.C:
-			newWidth, newHeight, _, _ := terminal.Size()
+			newWidth, newHeight, cursorColumn, cursorRow := terminal.Size()
 			if newWidth != lastWidth || newHeight != lastHeight {
 				renderer.ClearOverlay()
 				if err := session.Resize(newWidth, newHeight); err != nil {
 					return err
 				}
+				renderer.ReserveHeader(newHeight, cursorColumn, cursorRow)
 				lastWidth, lastHeight = newWidth, newHeight
 				scheduleRender()
 			}

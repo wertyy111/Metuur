@@ -79,6 +79,9 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 	// Wait for the real first prompt instead of guessing how quickly PowerShell
 	// starts. A clean GitHub runner can take much longer than a warm workstation.
 	waitForOutput(t, captured, "☭ ", 45*time.Second)
+	// Backspace at the start of an empty command must be absorbed by Metuur. It
+	// must never move the child cursor into the protected animated header row.
+	_, _ = outer.Write([]byte{0x7f, 0x7f, 0x7f})
 	_, _ = outer.Write([]byte(`go run .\ma`))
 	// A nested GitHub-runner ConPTY does not always expose a settled cursor
 	// position through GetConsoleScreenBufferInfo. In that case Metuur must hide
@@ -145,10 +148,11 @@ func TestVSCodeStyleConPTYTypingAndInteractiveInput(t *testing.T) {
 	if !strings.Contains(plain, "☭ ") {
 		t.Fatalf("Metuur prompt disappeared from the outer ConPTY:\n%s", plain)
 	}
-	promptSequence := "\x1b[38;2;97;255;202m☭ "
-	promptIndex := strings.Index(plain, promptSequence)
-	if promptIndex < 2 || plain[promptIndex-2:promptIndex] != "\r\n" {
-		t.Fatalf("first prompt was not placed below the task banner:\n%s", plain)
+	promptIndex := strings.Index(plain, "☭ ")
+	waveIndex := strings.Index(plain, "▁")
+	lineBreakIndex := strings.LastIndex(plain[:max(promptIndex, 0)], "\n")
+	if promptIndex < 0 || waveIndex < 0 || waveIndex > promptIndex || lineBreakIndex < waveIndex {
+		t.Fatalf("first prompt was not protected below the header row:\n%s", plain)
 	}
 }
 
