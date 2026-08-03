@@ -84,9 +84,9 @@ func (e *Engine) Suggest(line, cwd string, mode Mode, limit int) []Suggestion {
 			result = append(result, Suggestion{
 				Label:       compactCommandLabel(prediction.Command),
 				Insert:      prediction.Command,
-				Description: "локальный AI · знакомая команда в этой папке",
+				Description: "ИСТОРИЯ · использовалось в этой папке",
 				Kind:        "ai",
-				Score:       470 + prediction.Score,
+				Score:       330 + prediction.Score,
 			})
 		}
 	}
@@ -241,10 +241,11 @@ func (e *Engine) goBuildSuggestions(cwd string, parsed parseResult) []Suggestion
 		if math.IsInf(score, -1) {
 			continue
 		}
+		score += target.scoreBoost
 		result = append(result, Suggestion{
 			Label:       compactCommandLabel(target.command),
 			Insert:      target.command,
-			Description: target.description,
+			Description: structuredTargetDescription("СБОРКА", target),
 			Kind:        "build",
 			Score:       420 + score - float64(index)*0.01,
 		})
@@ -388,10 +389,11 @@ func (e *Engine) goFormatSuggestions(cwd string, parsed parseResult) []Suggestio
 		if math.IsInf(score, -1) {
 			continue
 		}
+		score += target.scoreBoost
 		result = append(result, Suggestion{
 			Label:       compactCommandLabel(target.command),
 			Insert:      target.command,
-			Description: target.description,
+			Description: structuredTargetDescription("ФОРМАТ", target),
 			Kind:        "format",
 			Score:       420 + score - float64(index)*0.01,
 		})
@@ -502,10 +504,11 @@ func (e *Engine) goRunSuggestions(line, cwd string, parsed parseResult) []Sugges
 		if math.IsInf(score, -1) {
 			continue
 		}
+		score += target.scoreBoost
 		result = append(result, Suggestion{
 			Label:       compactCommandLabel(target.command),
 			Insert:      target.command,
-			Description: target.description,
+			Description: structuredTargetDescription("ЗАПУСК", target),
 			Kind:        "run",
 			Score:       420 + score - float64(index)*0.01,
 		})
@@ -537,6 +540,15 @@ type goRunTarget struct {
 	command     string
 	search      string
 	description string
+	recommended bool
+	scoreBoost  float64
+}
+
+func structuredTargetDescription(group string, target goRunTarget) string {
+	if target.recommended {
+		return "РЕКОМЕНДУЕТСЯ · " + target.description
+	}
+	return group + " · " + target.description
 }
 
 func discoverGoRunTargets(cwd string) []goRunTarget {
@@ -720,7 +732,7 @@ func deduplicateRunTargets(items []goRunTarget) []goRunTarget {
 	seen := make(map[string]bool)
 	result := make([]goRunTarget, 0, len(items))
 	for _, item := range items {
-		key := strings.ToLower(item.command)
+		key := CanonicalCommandKey(item.command)
 		if seen[key] {
 			continue
 		}
@@ -835,8 +847,9 @@ func (e *Engine) fileSuggestions(line, cwd string, parsed parseResult) []Suggest
 func rankAndLimit(items []Suggestion, limit int) []Suggestion {
 	best := make(map[string]Suggestion)
 	for _, item := range items {
-		key := strings.ToLower(item.Insert)
-		if previous, ok := best[key]; !ok || item.Score > previous.Score {
+		key := CanonicalCommandKey(item.Insert)
+		previous, ok := best[key]
+		if !ok || preferSuggestion(item, previous) {
 			best[key] = item
 		}
 	}
@@ -854,6 +867,15 @@ func rankAndLimit(items []Suggestion, limit int) []Suggestion {
 		result = result[:limit]
 	}
 	return result
+}
+
+func preferSuggestion(candidate, previous Suggestion) bool {
+	candidateLearned := candidate.Kind == "ai" || candidate.Kind == "history"
+	previousLearned := previous.Kind == "ai" || previous.Kind == "history"
+	if candidateLearned != previousLearned {
+		return !candidateLearned
+	}
+	return candidate.Score > previous.Score
 }
 
 func (e *Engine) isGoCommand(commandLine string) bool {

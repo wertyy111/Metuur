@@ -1,11 +1,15 @@
 {
-  "prompt": "λ ",
   "shell": "auto",
   "localAIEnabled": true,
-  "maxSuggestions": 5,
+  "maxSuggestions": 100,
   "maxHistory": 5000,
-  "showDescriptions": true,
   "showHiddenFiles": false,
+  "ui": {
+    "style": "modern",
+    "maxWidth": 76,
+    "ghostText": true,
+    "nerdFonts": false
+  },
   "ai": {
     "enabled": true,
     "provider": "portable",
@@ -14,12 +18,5 @@
     "dataDir": "",
     "debounceMS": 500,
     "timeoutMS": 5000
-  },
-  "theme": {
-    "accent": "141",
-    "logo": "213",
-    "command": "121",
-    "muted": "248",
-    "selected": "60"
   }
 }

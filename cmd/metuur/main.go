@@ -22,7 +22,7 @@ import (
 	"github.com/wertyy111/metuur/internal/suggest"
 )
 
-const version = "0.3.0"
+const version = "0.4.1"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -301,16 +301,26 @@ func doctor() error {
 	} else {
 		fmt.Println("  Config load: OK")
 	}
-	runner, shellErr := shell.New(cfg.Shell)
+	shellName, shellErr := shell.CheckInteractive(cfg.Shell)
 	if shellErr != nil {
 		fmt.Printf("  Shell:       FAIL (%v)\n", shellErr)
 	} else {
-		fmt.Printf("  Shell:       OK (%s)\n", runner.Name())
+		fmt.Printf("  Shell:       OK (%s inside ConPTY)\n", shellName)
 	}
 	if git, gitErr := exec.LookPath("git.exe"); gitErr == nil {
 		fmt.Printf("  Git:         OK (%s)\n", git)
 	} else {
 		fmt.Println("  Git:         optional, not found")
+	}
+	if cwd, cwdErr := os.Getwd(); cwdErr == nil {
+		store := history.Load(config.HistoryPath(), cfg.MaxHistory)
+		if engine, engineErr := suggest.New(store, cfg.ShowHiddenFiles); engineErr == nil {
+			if activeFile, ok := engine.ActiveGoFile(cwd); ok {
+				fmt.Printf("  VS Code:     OK (active Go file: %s)\n", activeFile)
+			} else {
+				fmt.Println("  VS Code:     optional, active Go file not detected")
+			}
+		}
 	}
 	if cfg.AI.Enabled {
 		ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
@@ -329,7 +339,7 @@ func doctor() error {
 		fmt.Printf("  Terminal:    FAIL (%v)\n", terminalErr)
 	} else {
 		_ = terminal.Close()
-		fmt.Println("  Terminal:    OK (Windows Console API + ANSI)")
+		fmt.Println("  Terminal:    OK (VT input + ANSI overlay + Windows ConPTY)")
 	}
 	if err != nil || shellErr != nil || terminalErr != nil {
 		return fmt.Errorf("one or more required checks failed")
@@ -338,10 +348,10 @@ func doctor() error {
 }
 
 func printHelp() {
-	fmt.Print(`Metuur — intelligent Go command assistant for Windows
+	fmt.Print(`Metuur — unofficial IRIS behavior port for Go commands on Windows
 
 Usage:
-  metuur                 start the interactive PowerShell shell
+  metuur                 wrap a real PowerShell session with live suggestions
   metuur doctor          check Windows, terminal and shell support
   metuur ai status       show local AI and adaptive ranker status
   metuur ai setup [dir]  install the portable lightweight local model
@@ -352,16 +362,18 @@ Usage:
   metuur version         print the version
 
 Keys:
-  Tab / Right           accept the selected suggestion
-  Up / Down             select an item (or browse history on an empty line)
-  Shift+Tab             show or hide the menu
-  Ctrl+Space            show or hide the menu
+  Tab                   insert the selected suggestion
+  Right                 accept inline ghost text at the end of the line
+  Enter                 execute the text currently in PowerShell
+  Up / Down             select an item (or open command history)
+  Shift+Tab             enable or disable suggestions
+  Ctrl+Space            enable or disable suggestions
   Ctrl+Y                copy the entire input line
   Ctrl+Shift+C          copy the input line (when VS Code passes the key)
   Ctrl+R                switch between spec and history modes
   Ctrl+A / Ctrl+E       move to start / end
   Ctrl+W / Ctrl+U       delete word / clear line
   Ctrl+L / Ctrl+C       clear screen / cancel command
-  Esc                   hide suggestions
+  Esc                   hide suggestions until the next input
 `)
 }

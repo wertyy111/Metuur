@@ -1,0 +1,36 @@
+{
+  "name": "metuur-vscode-bridge",
+  "displayName": "Metuur VS Code Bridge",
+  "description": "Publishes the active Go file and workspace to the local Metuur command assistant.",
+  "version": "0.1.0",
+  "publisher": "metuur",
+  "license": "SEE LICENSE IN LICENSE.txt",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wertyy111/Metuur.git"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "go",
+    "golang",
+    "terminal",
+    "completion"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  }
+}

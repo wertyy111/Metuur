@@ -2,11 +2,11 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug WIRIS",
+      "name": "Debug Metuur",
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${workspaceFolder}/cmd/wiris",
+      "program": "${workspaceFolder}/cmd/metuur",
       "cwd": "${workspaceFolder}",
       "buildFlags": "-buildvcs=false",
       "console": "integratedTerminal"

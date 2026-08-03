@@ -5,14 +5,18 @@
       "label": "Metuur: auto start",
       "type": "process",
       "command": "${workspaceFolder}\\bin\\metuur.exe",
+      "dependsOn": "Metuur: build",
+      "dependsOrder": "sequence",
       "runOptions": {
         "runOn": "folderOpen"
       },
       "presentation": {
+        "echo": false,
         "reveal": "always",
-        "focus": true,
+        "focus": false,
         "panel": "dedicated",
-        "clear": true
+        "clear": true,
+        "showReuseMessage": false
       },
       "problemMatcher": []
     },

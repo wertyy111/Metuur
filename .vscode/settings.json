@@ -10,7 +10,6 @@
   "terminal.integrated.cursorStyleInactive": "outline",
   "terminal.integrated.copyOnSelection": true,
   "terminal.integrated.rightClickBehavior": "copyPaste",
-  "terminal.integrated.scrollOnUserInput": false,
   "workbench.colorCustomizations": {
     "terminalCursor.foreground": "#8BE9FD",
     "terminalCursor.background": "#BD93F966"

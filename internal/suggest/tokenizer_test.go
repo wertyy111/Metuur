@@ -165,14 +165,25 @@ func TestActiveVSCodeFileIsSuggestedFirst(t *testing.T) {
 	writeTestFile(t, first, "package main\nfunc main() {}\n")
 	writeTestFile(t, active, "package main\nfunc main() {}\n")
 	t.Setenv("METUUR_ACTIVE_FILE", active)
+	runCommand := `go run .\opened.go`
+	buildCommand := `go build .\opened.go`
+	// GOTMPDIR may itself live under a Go module (as on the local Windows
+	// workstation). In that case the production behavior correctly targets the
+	// containing package instead of compiling one source file in isolation.
+	if command := activePackageCommand(cwd, active, "run"); command != "" {
+		runCommand = command
+	}
+	if command := activePackageCommand(cwd, active, "build"); command != "" {
+		buildCommand = command
+	}
 
 	cases := []struct {
 		line string
 		want string
 	}{
-		{"go", `go run .\opened.go`},
-		{"go run", `go run .\opened.go`},
-		{"go build", `go build .\opened.go`},
+		{"go", runCommand},
+		{"go run", runCommand},
+		{"go build", buildCommand},
 		{"gofmt", `gofmt -w .\opened.go`},
 	}
 	for _, test := range cases {
@@ -207,7 +218,11 @@ func TestActiveVSCodeFileIsReadFromWorkspaceState(t *testing.T) {
 		"sqlite-data\x00history.entries[{\"editor\":{\"resource\":\""+activeURI+"\"}}]\x00")
 
 	items := engine.Suggest("go", cwd, ModeSpec, 20)
-	if len(items) == 0 || items[0].Insert != `go run .\opened.go` {
+	want := `go run .\opened.go`
+	if command := activePackageCommand(cwd, active, "run"); command != "" {
+		want = command
+	}
+	if len(items) == 0 || items[0].Insert != want {
 		t.Fatalf("VS Code workspace state was not detected: %#v", items)
 	}
 }
@@ -227,7 +242,7 @@ func TestActiveVSCodeFileUsesItsModuleAndPackage(t *testing.T) {
 	t.Setenv("METUUR_ACTIVE_FILE", active)
 
 	items := engine.Suggest("go", cwd, ModeSpec, 20)
-	want := `go -C .\tool run .\cmd\demo`
+	want := `go run .\tool\cmd\demo\main.go`
 	if len(items) == 0 || items[0].Insert != want {
 		t.Fatalf("active module package was not suggested as %q: %#v", want, items)
 	}
@@ -256,6 +271,49 @@ func TestGoRunSuggestsRunnableFilesFromWorkspace(t *testing.T) {
 		if strings.Contains(item.Insert, "helper.go") || strings.Contains(item.Insert, "_test.go") {
 			t.Fatalf("non-runnable file was suggested: %#v", item)
 		}
+	}
+}
+
+func TestCanonicalCommandKeyDeduplicatesWindowsPathSpelling(t *testing.T) {
+	variants := []string{
+		`go run .\task2.go`,
+		`GO   RUN task2.go`,
+		`go run ".\task2.go"`,
+	}
+	want := CanonicalCommandKey(variants[0])
+	for _, variant := range variants[1:] {
+		if got := CanonicalCommandKey(variant); got != want {
+			t.Fatalf("CanonicalCommandKey(%q) = %q, want %q", variant, got, want)
+		}
+	}
+	if CommandsEquivalent(`go run .`, `go run .\task2.go`) {
+		t.Fatal("package and file targets must stay distinct")
+	}
+}
+
+func TestLearnedDuplicateCannotReplaceWorkspaceSuggestion(t *testing.T) {
+	store := history.Load(filepath.Join(t.TempDir(), "history.txt"), 100000)
+	engine, err := New(store, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cwd := t.TempDir()
+	writeTestFile(t, filepath.Join(cwd, "task2.go"), "package main\nfunc main() {}\n")
+	t.Setenv("METUUR_ACTIVE_FILE", filepath.Join(cwd, "task2.go"))
+	engine.Learn("go run task2.go", cwd)
+
+	items := engine.Suggest(`go run .\task2.go`, cwd, ModeSpec, 10)
+	if len(items) == 0 || items[0].Kind != "run" || items[0].Insert != `go run .\task2.go` {
+		t.Fatalf("active file is not the primary deterministic suggestion: %#v", items)
+	}
+	count := 0
+	for _, item := range items {
+		if CommandsEquivalent(item.Insert, `go run .\task2.go`) {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("equivalent command appeared %d times: %#v", count, items)
 	}
 }
 

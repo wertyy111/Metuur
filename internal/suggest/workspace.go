@@ -43,9 +43,9 @@ func goStarterSuggestions(cwd string, parsed parseResult) []Suggestion {
 		result = append(result, Suggestion{
 			Label:       compactCommandLabel(target.command),
 			Insert:      target.command,
-			Description: target.description,
+			Description: structuredTargetDescription(strings.ToUpper(item.kind), target),
 			Kind:        item.kind,
-			Score:       600 - float64(index),
+			Score:       600 + target.scoreBoost - float64(index),
 		})
 	}
 	return result
@@ -92,9 +92,9 @@ func workspaceTargetsToSuggestions(targets []goRunTarget, query string) []Sugges
 		result = append(result, Suggestion{
 			Label:       compactCommandLabel(target.command),
 			Insert:      target.command,
-			Description: target.description,
+			Description: structuredTargetDescription("КОМАНДА", target),
 			Kind:        "workspace",
-			Score:       410 + score - float64(index)*0.01,
+			Score:       410 + score + target.scoreBoost - float64(index)*0.01,
 		})
 	}
 	return result

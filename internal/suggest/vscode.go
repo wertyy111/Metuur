@@ -10,11 +10,13 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 type vscodeActiveFile struct {
-	Path      string `json:"path"`
-	Workspace string `json:"workspace"`
+	Path      string    `json:"path"`
+	Workspace string    `json:"workspace"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 func activeGoFile(cwd string) (string, bool) {
@@ -63,6 +65,10 @@ func activeFileBridgeState() (vscodeActiveFile, bool) {
 	}
 	var state vscodeActiveFile
 	if json.Unmarshal(data, &state) != nil || strings.TrimSpace(state.Path) == "" {
+		return vscodeActiveFile{}, false
+	}
+	age := time.Since(state.UpdatedAt)
+	if state.UpdatedAt.IsZero() || age > 20*time.Second || age < -time.Minute {
 		return vscodeActiveFile{}, false
 	}
 	return state, true
@@ -246,6 +252,8 @@ func activeGoTarget(cwd, action string) (goRunTarget, bool) {
 		command:     command,
 		search:      displayPath + " " + filepath.Base(path) + " active vscode",
 		description: description,
+		recommended: true,
+		scoreBoost:  250,
 	}, true
 }
 
@@ -260,6 +268,12 @@ func activePackageCommand(cwd, path, action string) string {
 	}
 	packageRelative, err := filepath.Rel(moduleDir, filepath.Dir(path))
 	if err != nil {
+		return ""
+	}
+	// For a one-file program, show the file the user is actually looking at.
+	// Multi-file packages still use a package target so dependencies in sibling
+	// source files are included.
+	if len(goFiles(filepath.Dir(path))) == 1 {
 		return ""
 	}
 	prefix := "go "

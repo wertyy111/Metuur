@@ -6,197 +6,144 @@ import (
 	"fmt"
 	"os"
 	"syscall"
-	"time"
-	"unicode/utf16"
 	"unsafe"
 )
 
-type KeyKind uint8
-
 const (
-	KeyUnknown KeyKind = iota
-	KeyRune
-	KeyEnter
-	KeyTab
-	KeyEscape
-	KeyBackspace
-	KeyDelete
-	KeyLeft
-	KeyRight
-	KeyUp
-	KeyDown
-	KeyHome
-	KeyEnd
-)
+	blinkingBarCursor = "\x1b[?25h\x1b[5 q"
+	defaultCursor     = "\x1b[?25h\x1b[0 q"
 
-type Key struct {
-	Kind  KeyKind
-	Rune  rune
-	Ctrl  bool
-	Alt   bool
-	Shift bool
-}
-
-type Console struct {
-	input         syscall.Handle
-	output        syscall.Handle
-	inputMode     uint32
-	outputMode    uint32
-	rawMode       uint32
-	pending       Key
-	repeat        uint16
-	highSurrogate uint16
-}
-
-const (
-	keyEvent = 0x0001
-
-	blinkingBarCursor = "\x1b[5 q"
-	defaultCursor     = "\x1b[0 q"
-
-	enableProcessedInput = 0x0001
-	enableLineInput      = 0x0002
-	enableEchoInput      = 0x0004
-	enableWindowInput    = 0x0008
-	enableQuickEditMode  = 0x0040
-	enableExtendedFlags  = 0x0080
+	enableProcessedInput       = 0x0001
+	enableLineInput            = 0x0002
+	enableEchoInput            = 0x0004
+	enableWindowInput          = 0x0008
+	enableQuickEditMode        = 0x0040
+	enableExtendedFlags        = 0x0080
+	enableVirtualTerminalInput = 0x0200
 
 	enableVirtualTerminalProcessing = 0x0004
-
-	rightAltPressed  = 0x0001
-	leftAltPressed   = 0x0002
-	rightCtrlPressed = 0x0004
-	leftCtrlPressed  = 0x0008
-	shiftPressed     = 0x0010
 )
 
 var (
 	kernel32Proc            = syscall.NewLazyDLL("kernel32.dll")
 	getConsoleModeProc      = kernel32Proc.NewProc("GetConsoleMode")
 	setConsoleModeProc      = kernel32Proc.NewProc("SetConsoleMode")
-	readConsoleInputWProc   = kernel32Proc.NewProc("ReadConsoleInputW")
-	waitForSingleObjectProc = kernel32Proc.NewProc("WaitForSingleObject")
+	getScreenBufferInfoProc = kernel32Proc.NewProc("GetConsoleScreenBufferInfo")
 )
 
-type inputRecord struct {
-	EventType uint16
-	_         uint16
-	Event     [16]byte
+type Console struct {
+	input      syscall.Handle
+	output     syscall.Handle
+	inputMode  uint32
+	outputMode uint32
+	rawMode    uint32
 }
 
-type keyEventRecord struct {
-	KeyDown         int32
-	RepeatCount     uint16
-	VirtualKeyCode  uint16
-	VirtualScanCode uint16
-	UnicodeChar     uint16
-	ControlState    uint32
+type coord struct {
+	X int16
+	Y int16
+}
+
+type smallRect struct {
+	Left   int16
+	Top    int16
+	Right  int16
+	Bottom int16
+}
+
+type screenBufferInfo struct {
+	Size              coord
+	CursorPosition    coord
+	Attributes        uint16
+	Window            smallRect
+	MaximumWindowSize coord
 }
 
 func Open() (*Console, error) {
-	c := &Console{
+	console := &Console{
 		input:  syscall.Handle(os.Stdin.Fd()),
 		output: syscall.Handle(os.Stdout.Fd()),
 	}
-	if err := getConsoleMode(c.input, &c.inputMode); err != nil {
-		return nil, fmt.Errorf("stdin is not a Windows console: %w", err)
+	if err := getConsoleMode(console.input, &console.inputMode); err != nil {
+		return nil, fmt.Errorf("stdin is not a Windows terminal: %w", err)
 	}
-	if err := getConsoleMode(c.output, &c.outputMode); err != nil {
-		return nil, fmt.Errorf("stdout is not a Windows console: %w", err)
+	if err := getConsoleMode(console.output, &console.outputMode); err != nil {
+		return nil, fmt.Errorf("stdout is not a Windows terminal: %w", err)
 	}
 
-	c.rawMode = c.inputMode
-	c.rawMode &^= enableProcessedInput | enableLineInput | enableEchoInput | enableQuickEditMode
-	c.rawMode |= enableWindowInput | enableExtendedFlags
-	if err := c.Resume(); err != nil {
-		return nil, err
+	console.rawMode = rawInputMode(console.inputMode)
+	if err := setConsoleMode(console.input, console.rawMode); err != nil {
+		return nil, fmt.Errorf("enable VT input: %w", err)
 	}
-	if err := setConsoleMode(c.output, c.outputMode|enableVirtualTerminalProcessing); err != nil {
-		_ = setConsoleMode(c.input, c.inputMode)
+	if err := setConsoleMode(console.output, console.outputMode|enableVirtualTerminalProcessing); err != nil {
+		_ = setConsoleMode(console.input, console.inputMode)
 		return nil, fmt.Errorf("enable ANSI output: %w", err)
 	}
 	fmt.Fprint(os.Stdout, blinkingBarCursor)
-	return c, nil
+	return console, nil
 }
 
-func (c *Console) ReadKey() (Key, error) {
-	key, _, err := c.readKeyTimeout(-1)
-	return key, err
+// rawInputMode mirrors IRIS' raw byte-stream model. Windows translates keys
+// such as Shift+Tab and arrows into VT sequences; Metuur either intercepts a
+// sequence or forwards the exact bytes to the child ConPTY.
+func rawInputMode(mode uint32) uint32 {
+	mode &^= enableProcessedInput | enableLineInput | enableEchoInput | enableQuickEditMode
+	mode |= enableWindowInput | enableExtendedFlags | enableVirtualTerminalInput
+	return mode
 }
 
-func (c *Console) ReadKeyTimeout(timeout time.Duration) (Key, bool, error) {
-	return c.readKeyTimeout(timeout)
-}
-
-func (c *Console) readKeyTimeout(timeout time.Duration) (Key, bool, error) {
-	if c.repeat > 0 {
-		c.repeat--
-		return c.pending, true, nil
+func (c *Console) Read(buffer []byte) (int, error) {
+	if err := c.ensureRawMode(); err != nil {
+		return 0, err
 	}
-
-	var deadline time.Time
-	if timeout >= 0 {
-		deadline = time.Now().Add(timeout)
-	}
-	for {
-		waitMillis := uint32(0xffffffff)
-		if timeout >= 0 {
-			remaining := time.Until(deadline)
-			if remaining <= 0 {
-				return Key{}, false, nil
-			}
-			waitMillis = uint32((remaining + time.Millisecond - 1) / time.Millisecond)
-		}
-		waitResult, _, waitErr := waitForSingleObjectProc.Call(uintptr(c.input), uintptr(waitMillis))
-		switch uint32(waitResult) {
-		case 0x00000000:
-			// Console input is available.
-		case 0x00000102:
-			return Key{}, false, nil
-		case 0xffffffff:
-			return Key{}, false, fmt.Errorf("wait for console input: %w", waitErr)
-		default:
-			return Key{}, false, fmt.Errorf("wait for console input returned 0x%x", waitResult)
-		}
-
-		var (
-			record inputRecord
-			read   uint32
-		)
-		result, _, callErr := readConsoleInputWProc.Call(
-			uintptr(c.input),
-			uintptr(unsafe.Pointer(&record)),
-			1,
-			uintptr(unsafe.Pointer(&read)),
-		)
-		if result == 0 {
-			return Key{}, false, callErr
-		}
-		if read == 0 || record.EventType != keyEvent {
-			continue
-		}
-		event := *(*keyEventRecord)(unsafe.Pointer(&record.Event[0]))
-		if event.KeyDown == 0 {
-			continue
-		}
-		key, ok := c.translate(event)
-		if !ok {
-			continue
-		}
-		if event.RepeatCount > 1 {
-			c.pending = key
-			c.repeat = event.RepeatCount - 1
-		}
-		return key, true, nil
-	}
+	return os.Stdin.Read(buffer)
 }
 
-func (c *Console) Suspend() error {
-	return setConsoleMode(c.input, c.inputMode)
+func (c *Console) ensureRawMode() error {
+	var mode uint32
+	if err := getConsoleMode(c.input, &mode); err != nil {
+		return fmt.Errorf("read terminal input mode: %w", err)
+	}
+	if mode == c.rawMode {
+		return nil
+	}
+	if err := setConsoleMode(c.input, c.rawMode); err != nil {
+		return fmt.Errorf("restore terminal input mode: %w", err)
+	}
+	return nil
 }
 
-func (c *Console) Resume() error {
-	return setConsoleMode(c.input, c.rawMode)
+// Size returns the visible terminal dimensions and current zero-based cursor
+// position. The overlay uses the free rows below the real PowerShell cursor.
+func (c *Console) Size() (width, height, cursorColumn, cursorRow int) {
+	var info screenBufferInfo
+	result, _, _ := getScreenBufferInfoProc.Call(
+		uintptr(c.output),
+		uintptr(unsafe.Pointer(&info)),
+	)
+	if result == 0 {
+		return 80, 30, 0, 0
+	}
+	width = int(info.Window.Right-info.Window.Left) + 1
+	height = int(info.Window.Bottom-info.Window.Top) + 1
+	cursorColumn = int(info.CursorPosition.X - info.Window.Left)
+	cursorRow = int(info.CursorPosition.Y - info.Window.Top)
+	if width < 1 {
+		width = 80
+	}
+	if height < 1 {
+		height = 30
+	}
+	if cursorColumn < 0 {
+		cursorColumn = 0
+	}
+	if cursorRow < 0 {
+		cursorRow = 0
+	}
+	if cursorRow >= height {
+		cursorRow = height - 1
+	}
+	return width, height, cursorColumn, cursorRow
 }
 
 func (c *Console) Close() error {
@@ -207,65 +154,6 @@ func (c *Console) Close() error {
 		return inputErr
 	}
 	return outputErr
-}
-
-func (c *Console) translate(event keyEventRecord) (Key, bool) {
-	state := event.ControlState
-	key := Key{
-		Ctrl:  state&(rightCtrlPressed|leftCtrlPressed) != 0,
-		Alt:   state&(rightAltPressed|leftAltPressed) != 0,
-		Shift: state&shiftPressed != 0,
-	}
-	if key.Ctrl && !key.Alt && event.VirtualKeyCode == 0x20 {
-		key.Kind = KeyRune
-		key.Rune = ' '
-		return key, true
-	}
-	switch event.VirtualKeyCode {
-	case 0x0D:
-		key.Kind = KeyEnter
-	case 0x09:
-		key.Kind = KeyTab
-	case 0x1B:
-		key.Kind = KeyEscape
-	case 0x08:
-		key.Kind = KeyBackspace
-	case 0x2E:
-		key.Kind = KeyDelete
-	case 0x25:
-		key.Kind = KeyLeft
-	case 0x27:
-		key.Kind = KeyRight
-	case 0x26:
-		key.Kind = KeyUp
-	case 0x28:
-		key.Kind = KeyDown
-	case 0x24:
-		key.Kind = KeyHome
-	case 0x23:
-		key.Kind = KeyEnd
-	default:
-		if key.Ctrl && !key.Alt && event.VirtualKeyCode >= 'A' && event.VirtualKeyCode <= 'Z' {
-			key.Kind = KeyRune
-			key.Rune = rune('a' + event.VirtualKeyCode - 'A')
-			return key, true
-		}
-		if event.UnicodeChar == 0 {
-			return Key{}, false
-		}
-		if event.UnicodeChar >= 0xD800 && event.UnicodeChar <= 0xDBFF {
-			c.highSurrogate = event.UnicodeChar
-			return Key{}, false
-		}
-		key.Kind = KeyRune
-		if c.highSurrogate != 0 {
-			key.Rune = utf16.DecodeRune(rune(c.highSurrogate), rune(event.UnicodeChar))
-			c.highSurrogate = 0
-		} else {
-			key.Rune = rune(event.UnicodeChar)
-		}
-	}
-	return key, true
 }
 
 func getConsoleMode(handle syscall.Handle, mode *uint32) error {
