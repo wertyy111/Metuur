@@ -355,9 +355,9 @@ func Run(cfg config.Config, version string) error {
 				aiSuggestion = &suggest.Suggestion{
 					Label:       completion.Command,
 					Insert:      completion.Command,
-					Description: "ai suggestion",
+					Description: "AI · продолжение по контексту",
 					Kind:        "ai",
-					Score:       550,
+					Score:       390,
 				}
 				selected = 0
 				recompute()
@@ -745,7 +745,12 @@ func (w *notifyingWriter) Generation() uint64 {
 func mergeAISuggestion(items []suggest.Suggestion, ai suggest.Suggestion) []suggest.Suggestion {
 	result := make([]suggest.Suggestion, 0, len(items)+1)
 	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Insert), strings.TrimSpace(ai.Insert)) {
+		if suggest.CommandsEquivalent(item.Insert, ai.Insert) {
+			// A command derived from the active file or workspace is explainable
+			// and validated. Keep it instead of replacing it with an opaque AI row.
+			if item.Kind != "ai" && item.Kind != "history" {
+				return items
+			}
 			if item.Score > ai.Score {
 				ai.Score = item.Score
 			}

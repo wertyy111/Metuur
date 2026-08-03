@@ -252,6 +252,8 @@ func activeGoTarget(cwd, action string) (goRunTarget, bool) {
 		command:     command,
 		search:      displayPath + " " + filepath.Base(path) + " active vscode",
 		description: description,
+		recommended: true,
+		scoreBoost:  250,
 	}, true
 }
 
@@ -266,6 +268,12 @@ func activePackageCommand(cwd, path, action string) string {
 	}
 	packageRelative, err := filepath.Rel(moduleDir, filepath.Dir(path))
 	if err != nil {
+		return ""
+	}
+	// For a one-file program, show the file the user is actually looking at.
+	// Multi-file packages still use a package target so dependencies in sibling
+	// source files are included.
+	if len(goFiles(filepath.Dir(path))) == 1 {
 		return ""
 	}
 	prefix := "go "

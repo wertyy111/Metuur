@@ -242,7 +242,7 @@ func TestActiveVSCodeFileUsesItsModuleAndPackage(t *testing.T) {
 	t.Setenv("METUUR_ACTIVE_FILE", active)
 
 	items := engine.Suggest("go", cwd, ModeSpec, 20)
-	want := `go -C .\tool run .\cmd\demo`
+	want := `go run .\tool\cmd\demo\main.go`
 	if len(items) == 0 || items[0].Insert != want {
 		t.Fatalf("active module package was not suggested as %q: %#v", want, items)
 	}
@@ -271,6 +271,49 @@ func TestGoRunSuggestsRunnableFilesFromWorkspace(t *testing.T) {
 		if strings.Contains(item.Insert, "helper.go") || strings.Contains(item.Insert, "_test.go") {
 			t.Fatalf("non-runnable file was suggested: %#v", item)
 		}
+	}
+}
+
+func TestCanonicalCommandKeyDeduplicatesWindowsPathSpelling(t *testing.T) {
+	variants := []string{
+		`go run .\task2.go`,
+		`GO   RUN task2.go`,
+		`go run ".\task2.go"`,
+	}
+	want := CanonicalCommandKey(variants[0])
+	for _, variant := range variants[1:] {
+		if got := CanonicalCommandKey(variant); got != want {
+			t.Fatalf("CanonicalCommandKey(%q) = %q, want %q", variant, got, want)
+		}
+	}
+	if CommandsEquivalent(`go run .`, `go run .\task2.go`) {
+		t.Fatal("package and file targets must stay distinct")
+	}
+}
+
+func TestLearnedDuplicateCannotReplaceWorkspaceSuggestion(t *testing.T) {
+	store := history.Load(filepath.Join(t.TempDir(), "history.txt"), 100000)
+	engine, err := New(store, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cwd := t.TempDir()
+	writeTestFile(t, filepath.Join(cwd, "task2.go"), "package main\nfunc main() {}\n")
+	t.Setenv("METUUR_ACTIVE_FILE", filepath.Join(cwd, "task2.go"))
+	engine.Learn("go run task2.go", cwd)
+
+	items := engine.Suggest(`go run .\task2.go`, cwd, ModeSpec, 10)
+	if len(items) == 0 || items[0].Kind != "run" || items[0].Insert != `go run .\task2.go` {
+		t.Fatalf("active file is not the primary deterministic suggestion: %#v", items)
+	}
+	count := 0
+	for _, item := range items {
+		if CommandsEquivalent(item.Insert, `go run .\task2.go`) {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("equivalent command appeared %d times: %#v", count, items)
 	}
 }
 

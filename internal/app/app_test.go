@@ -27,14 +27,28 @@ func TestNotifyingWriterSignalsChildOutputWithoutBlocking(t *testing.T) {
 }
 
 func TestAISuggestionIsRankedAndDeduplicated(t *testing.T) {
-	ai := suggest.Suggestion{Insert: "go test ./...", Kind: "ai", Score: 550}
+	ai := suggest.Suggestion{Insert: "go test ./...", Kind: "ai", Score: 390}
 	items := []suggest.Suggestion{
 		{Insert: "go build ./...", Kind: "build", Score: 600},
 		{Insert: "GO TEST ./...", Kind: "workspace", Score: 700},
 	}
 	result := mergeAISuggestion(items, ai)
-	if len(result) != 2 || result[0].Kind != "ai" || result[0].Score != 700 || result[1].Kind != "build" {
+	if len(result) != 2 || result[0].Kind != "build" || result[1].Kind != "workspace" {
 		t.Fatalf("unexpected merged suggestions: %#v", result)
+	}
+}
+
+func TestAISuggestionDeduplicatesWindowsRelativePath(t *testing.T) {
+	items := []suggest.Suggestion{{
+		Insert:      `go run .\task2.go`,
+		Description: "РЕКОМЕНДУЕТСЯ · открытый файл VS Code",
+		Kind:        "run",
+		Score:       700,
+	}}
+	ai := suggest.Suggestion{Insert: "go run task2.go", Kind: "ai", Score: 900}
+	result := mergeAISuggestion(items, ai)
+	if len(result) != 1 || result[0].Kind != "run" {
+		t.Fatalf("deterministic command was replaced by equivalent AI row: %#v", result)
 	}
 }
 
